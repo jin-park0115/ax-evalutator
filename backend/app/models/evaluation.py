@@ -1,18 +1,27 @@
-from sqlalchemy import ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from django.db import models
 
-from app.core.database import Base
+from app.models.round import Round
+from app.models.student import Student
 
 
-class Evaluation(Base):
-    __tablename__ = "evaluations"
-    __table_args__ = (
-        UniqueConstraint("round_id", "evaluator_id", "target_id", name="uq_evaluation_once"),
+class Evaluation(models.Model):
+    round = models.ForeignKey(Round, on_delete=models.CASCADE)
+    evaluator = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="given_evaluations",
     )
+    target = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="received_evaluations",
+    )
+    score = models.IntegerField()
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    round_id: Mapped[int] = mapped_column(ForeignKey("rounds.id"), nullable=False)
-    evaluator_id: Mapped[int] = mapped_column(ForeignKey("students.id"), nullable=False)
-    target_id: Mapped[int] = mapped_column(ForeignKey("students.id"), nullable=False)
-    score: Mapped[int] = mapped_column(nullable=False)
-
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["round", "evaluator", "target"],
+                name="uq_evaluation_once",
+            )
+        ]

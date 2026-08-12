@@ -1,13 +1,9 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.core.database import Base
+from django.db import models
 
 
-class Student(Base):
-    __tablename__ = "students"
+class Student(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField(blank=True, null=True, unique=True)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str | None] = mapped_column(String(255), unique=True)
-
+    def __str__(self) -> str:
+        return self.name

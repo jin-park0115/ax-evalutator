@@ -3,7 +3,7 @@
 수강생 팀 편성, 평가 입력, 점수/석차 계산, 결과 공개를 위한 프로젝트입니다.
 
 - `frontend/`: Django, Django Admin, Bootstrap 기반 화면/입력/사용자 흐름
-- `backend/`: Python FastAPI, PostgreSQL 기반 알고리즘/계산/데이터 정합성
+- `backend/`: Python, Django ORM, PostgreSQL 기반 알고리즘/계산/데이터 정합성
 - `docs/`: ERD/API 설계 문서
 
 ## 클론 후 실행 준비
@@ -16,13 +16,14 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-uvicorn app.main:app --reload
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
 ```
 
 기본 API 확인:
 
 ```bash
-curl http://localhost:8000/api/health
+curl http://localhost:8000/api/health/
 ```
 
 ### 2. Frontend
@@ -44,7 +45,7 @@ python manage.py runserver 0.0.0.0:8001
 
 - Frontend: http://localhost:8001
 - Django Admin: http://localhost:8001/admin/
-- Backend API: http://localhost:8000/api/health
+- Backend API: http://localhost:8000/api/health/
 
 ## PostgreSQL
 

@@ -1,9 +1,5 @@
-from fastapi import APIRouter
-
-router = APIRouter(tags=["health"])
+from django.http import JsonResponse
 
 
-@router.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
-
+def health_check(request):
+    return JsonResponse({"status": "ok"})
