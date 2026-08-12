@@ -1,8 +1,1 @@
-from fastapi import FastAPI
-
-from app.api.health import router as health_router
-
-app = FastAPI(title="AX Evaluator Backend")
-
-app.include_router(health_router, prefix="/api")
-
+"""Django backend entrypoint is backend/manage.py."""

@@ -1,8 +1,5 @@
-from sqlalchemy.orm import Session
-
 from app.models.student import Student
 
 
-def list_students(db: Session) -> list[Student]:
-    return list(db.query(Student).order_by(Student.id).all())
-
+def list_students() -> list[Student]:
+    return list(Student.objects.order_by("id"))
