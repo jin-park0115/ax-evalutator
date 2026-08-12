@@ -1,0 +1,77 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ===== Virtual Environments =====
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ===== Environment Variables / Secrets =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== Django (frontend/) =====
+frontend/db.sqlite3
+frontend/staticfiles/
+frontend/media/
+frontend/*.log
+local_settings.py
+
+# ===== Backend (FastAPI/Flask 등) =====
+backend/*.log
+backend/instance/
+
+# ===== PostgreSQL =====
+*.sql.bak
+*.dump
+pgdata/
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ===== Test / Coverage =====
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Migrations (선택: 커밋할 거면 이 줄 삭제) =====
+# backend/migrations/versions/*.py
+
+# ===== Node (프론트 정적 자산 빌드용 도구 쓸 경우) =====
+node_modules/
+npm-debug.log*
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
