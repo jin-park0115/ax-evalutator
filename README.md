@@ -49,12 +49,6 @@ python manage.py runserver 0.0.0.0:8001
 
 ## PostgreSQL
 
-Docker가 있으면 아래 명령으로 PostgreSQL을 실행할 수 있습니다.
-
-```bash
-docker compose up -d postgres
-```
-
 로컬 PostgreSQL을 직접 쓰는 경우 아래 DB를 준비합니다.
 
 - Backend: `ax_evaluator`
