@@ -1,13 +1,9 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.core.database import Base
+from django.db import models
 
 
-class Round(Base):
-    __tablename__ = "rounds"
+class Round(models.Model):
+    title = models.CharField(max_length=100)
+    status = models.CharField(max_length=30, default="draft")
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
-    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)
-
+    def __str__(self) -> str:
+        return self.title
