@@ -10,15 +10,20 @@
 </head>
 <body>
   <nav class="navbar navbar-expand-lg border-bottom bg-white">
-    <div class="container">
-      <a class="navbar-brand fw-semibold" href="/">AX Evaluator</a>
-      <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
+    <div class="container d-flex justify-content-between align-items-center">
+      <a class="navbar-brand fw-semibold mb-0" href="/">AX Evaluator</a>
+      <div class="d-flex align-items-center gap-3">
+        <a class="text-decoration-none" href="{% url 'student_home' %}">학생 홈</a>
+        <a class="text-decoration-none" href="{% url 'student_team' %}">내 팀</a>
+        <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
+      </div>
     </div>
   </nav>
+
   <main class="container py-4">
     {% block content %}{% endblock %}
   </main>
-  <h1>hyungjune</h1>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
