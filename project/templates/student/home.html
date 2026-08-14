@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="mb-4">학생 홈</h2>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">현재 평가 회차</h5>
+    <p class="card-text text-muted">아직 진행 중인 회차가 없습니다.</p>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">내 팀</h5>
+    <p class="card-text text-muted">팀 편성 대기 중입니다.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">평가 진행 상태</h5>
+    <button class="btn btn-primary" disabled>팀 평가하기</button>
+    <button class="btn btn-primary" disabled>팀원 평가하기</button>
+  </div>
+</div>
+
+{% endblock %}

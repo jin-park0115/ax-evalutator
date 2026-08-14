@@ -1,10 +1,10 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 from apps.accounts.views import home
 
 urlpatterns = [
     path("", home, name="home"),
+    path("student/", include("apps.students.urls")),
     path("admin/", admin.site.urls),
 ]
-
