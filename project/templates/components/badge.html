@@ -1,0 +1,13 @@
+{% comment %}
+사용법: {% include "components/badge.html" with status="완료" %}
+상태값: 대기 / 진행중 / 완료 / 마감
+{% endcomment %}
+{% if status == "완료" %}
+  <span class="badge bg-success">완료</span>
+{% elif status == "진행중" %}
+  <span class="badge bg-primary">진행중</span>
+{% elif status == "마감" %}
+  <span class="badge bg-danger">마감</span>
+{% else %}
+  <span class="badge bg-secondary">대기</span>
+{% endif %}
