@@ -6,14 +6,20 @@
 
 <div class="card mb-3">
   <div class="card-body">
-    <h5 class="card-title">현재 평가 회차</h5>
+    <h5 class="card-title">
+      현재 평가 회차
+      {% include "components/badge.html" with status="대기" %}
+    </h5>
     <p class="card-text text-muted">아직 진행 중인 회차가 없습니다.</p>
   </div>
 </div>
 
 <div class="card mb-3">
   <div class="card-body">
-    <h5 class="card-title">내 팀</h5>
+    <h5 class="card-title">
+      내 팀
+      {% include "components/badge.html" with status="대기" %}
+    </h5>
     <p class="card-text text-muted">팀 편성 대기 중입니다.</p>
   </div>
 </div>
@@ -21,6 +27,11 @@
 <div class="card">
   <div class="card-body">
     <h5 class="card-title">평가 진행 상태</h5>
+    <p class="card-text">
+      팀 평가 {% include "components/badge.html" with status="대기" %}
+      &nbsp;
+      팀원 평가 {% include "components/badge.html" with status="대기" %}
+    </p>
     <button class="btn btn-primary" disabled>팀 평가하기</button>
     <button class="btn btn-primary" disabled>팀원 평가하기</button>
   </div>
