@@ -4,3 +4,6 @@ def assign_teams(student_ids: list[int], team_size: int = 5) -> list[list[int]]:
 
     return [student_ids[index : index + team_size] for index in range(0, len(student_ids), team_size)]
 
+
+def build_teams(student_ids: list[int], team_size: int = 5) -> list[list[int]]:
+    return assign_teams(student_ids, team_size=team_size)

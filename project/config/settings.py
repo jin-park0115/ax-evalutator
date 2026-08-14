@@ -74,5 +74,3 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-BACKEND_API_BASE_URL = config("BACKEND_API_BASE_URL", default="http://localhost:8000/api")
-

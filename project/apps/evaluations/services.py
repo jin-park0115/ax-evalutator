@@ -1,6 +1,6 @@
 from django.db import IntegrityError, transaction
 
-from app.models.evaluation import Evaluation
+from apps.evaluations.models import Evaluation
 
 
 def create_evaluation(
