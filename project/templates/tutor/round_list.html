@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">평가 회차 관리</h1>
+        <p class="text-muted mb-0">
+            평가 회차를 생성하고 현재 상태를 확인할 수 있습니다.
+        </p>
+    </div>
+
+    <button class="btn btn-primary">
+        + 회차 생성
+    </button>
+</div>
+
+
+<!-- 회차 목록 -->
+<div class="card">
+    <div class="card-header">
+        <strong>회차 목록</strong>
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+
+                <thead class="table-light">
+                    <tr>
+                        <th>평가명</th>
+                        <th>과제명</th>
+                        <th>기간</th>
+                        <th>팀 수</th>
+                        <th>상태</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    <!-- 가짜 데이터 1 -->
+                    <tr>
+                        <td>1차 팀 평가</td>
+                        <td>Django 프로젝트</td>
+                        <td>2026-08-14 ~ 2026-08-18</td>
+                        <td>5팀</td>
+                        <td>
+                            <span class="badge text-bg-secondary">
+                                대기
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary">
+                                보기
+                            </button>
+                        </td>
+                    </tr>
+
+
+                    <!-- 가짜 데이터 2 -->
+                    <tr>
+                        <td>2차 팀 평가</td>
+                        <td>AI 프로젝트</td>
+                        <td>2026-08-20 ~ 2026-08-25</td>
+                        <td>6팀</td>
+                        <td>
+                            <span class="badge text-bg-primary">
+                                진행중
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary">
+                                보기
+                            </button>
+                        </td>
+                    </tr>
+
+
+                    <!-- 가짜 데이터 3 -->
+                    <tr>
+                        <td>3차 팀 평가</td>
+                        <td>최종 프로젝트</td>
+                        <td>2026-08-28 ~ 2026-09-01</td>
+                        <td>5팀</td>
+                        <td>
+                            <span class="badge text-bg-success">
+                                완료
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary">
+                                보기
+                            </button>
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

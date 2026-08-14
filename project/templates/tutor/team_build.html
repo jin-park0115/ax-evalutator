@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 class="mb-4">팀 편성</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">팀 자동 편성</h5>
+        <p class="card-text">
+            학생들의 평가 점수를 기준으로 팀을 자동 편성합니다.
+        </p>
+
+        <button type="button" class="btn btn-primary">
+            자동 편성
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">팀 편성 결과</h5>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6>1팀</h6>
+                        <p class="mb-1">평균 점수: -</p>
+
+                        <select class="form-select">
+                            <option>학생 선택</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6>2팀</h6>
+                        <p class="mb-1">평균 점수: -</p>
+
+                        <select class="form-select">
+                            <option>학생 선택</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-success">
+            편성 확정
+        </button>
+    </div>
+</div>
+
+{% endblock %}
