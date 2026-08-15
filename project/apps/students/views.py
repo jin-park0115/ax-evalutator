@@ -2,7 +2,9 @@ from django.shortcuts import render
 
 
 def student_home(request):
-    return render(request, "student/home.html")
+    # state = get_student_state(request.user) 
+    state = "before"
+    return render(request, "student/home.html", {"state": state})
 
 def student_team(request):
     return render(request, "student/team.html")
