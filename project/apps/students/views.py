@@ -4,9 +4,11 @@ from django.shortcuts import render
 
 @login_required
 def student_home(request):
-    # state = get_student_state(request.user)
-    state = "before"
-    return render(request, "student/home.html", {"state": state})
+    # state = get_student_state(request.user)  ← BE 함수 나오면 이 한 줄로 교체
+    state = request.GET.get("state", "before")
+
+    team, members = get_my_team(request.user)
+    return render(request, "student/home.html", {"state": state, "team": team})
 
 
 @login_required
