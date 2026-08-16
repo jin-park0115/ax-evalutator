@@ -2,106 +2,455 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-1">평가 회차 관리</h1>
-        <p class="text-muted mb-0">
-            평가 회차를 생성하고 현재 상태를 확인할 수 있습니다.
-        </p>
+<div class="container py-4">
+
+    <!-- 페이지 제목 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1 class="h3 mb-1">평가 회차 관리</h1>
+
+            <p class="text-muted mb-0">
+                평가 회차를 생성하고 현재 상태를 확인할 수 있습니다.
+            </p>
+        </div>
+
+        <!-- 회차 생성 버튼 -->
+        <button
+            type="button"
+            class="btn btn-primary"
+            id="openRoundCreateForm"
+        >
+            + 회차 생성
+        </button>
+
     </div>
 
-    <button class="btn btn-primary">
-        + 회차 생성
-    </button>
-</div>
+
+    <!-- ===================================== -->
+    <!-- 회차 생성 폼 -->
+    <!-- ===================================== -->
+
+    <div
+        class="mb-4"
+        id="roundCreateForm"
+        style="display: none;"
+    >
+
+        <div class="card">
+
+            <div class="card-header">
+                <strong>새 평가 회차 생성</strong>
+            </div>
 
 
-<!-- 회차 목록 -->
-<div class="card">
-    <div class="card-header">
-        <strong>회차 목록</strong>
-    </div>
+            <div class="card-body">
 
-    <div class="card-body p-0">
-
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-
-                <thead class="table-light">
-                    <tr>
-                        <th>평가명</th>
-                        <th>과제명</th>
-                        <th>기간</th>
-                        <th>팀 수</th>
-                        <th>상태</th>
-                        <th>관리</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                    <!-- 가짜 데이터 1 -->
-                    <tr>
-                        <td>1차 팀 평가</td>
-                        <td>Django 프로젝트</td>
-                        <td>2026-08-14 ~ 2026-08-18</td>
-                        <td>5팀</td>
-                        <td>
-                            <span class="badge text-bg-secondary">
-                                대기
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary">
-                                보기
-                            </button>
-                        </td>
-                    </tr>
+                {% if error %}
+                    <div class="alert alert-danger">
+                        {{ error }}
+                    </div>
+                {% endif %}
 
 
-                    <!-- 가짜 데이터 2 -->
-                    <tr>
-                        <td>2차 팀 평가</td>
-                        <td>AI 프로젝트</td>
-                        <td>2026-08-20 ~ 2026-08-25</td>
-                        <td>6팀</td>
-                        <td>
-                            <span class="badge text-bg-primary">
-                                진행중
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary">
-                                보기
-                            </button>
-                        </td>
-                    </tr>
+                {% if created %}
+                    <div class="alert alert-success">
+                        회차가 생성되었습니다.
+                    </div>
+                {% endif %}
 
 
-                    <!-- 가짜 데이터 3 -->
-                    <tr>
-                        <td>3차 팀 평가</td>
-                        <td>최종 프로젝트</td>
-                        <td>2026-08-28 ~ 2026-09-01</td>
-                        <td>5팀</td>
-                        <td>
-                            <span class="badge text-bg-success">
-                                완료
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary">
-                                보기
-                            </button>
-                        </td>
-                    </tr>
+                <!-- Django POST 요청 -->
+                <form
+                    method="POST"
+                    action=""
+                    id="createRoundForm"
+                >
 
-                </tbody>
+                    {% csrf_token %}
 
-            </table>
+
+                    <div class="row g-3">
+
+                        <!-- 평가명 -->
+                        <div class="col-md-6">
+
+                            <label
+                                for="evaluationName"
+                                class="form-label"
+                            >
+                                평가명
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="evaluationName"
+                                name="title"
+                                placeholder="예: 1차 팀 평가"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- 과제명 -->
+                        <div class="col-md-6">
+
+                            <label
+                                for="assignmentName"
+                                class="form-label"
+                            >
+                                과제명
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="assignmentName"
+                                name="assignment"
+                                placeholder="예: Django 프로젝트"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- 시작일 -->
+                        <div class="col-md-4">
+
+                            <label
+                                for="startDate"
+                                class="form-label"
+                            >
+                                시작일
+                            </label>
+
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="startDate"
+                                name="start_date"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- 종료일 -->
+                        <div class="col-md-4">
+
+                            <label
+                                for="endDate"
+                                class="form-label"
+                            >
+                                종료일
+                            </label>
+
+                            <input
+                                type="date"
+                                class="form-control"
+                                id="endDate"
+                                name="end_date"
+                                required
+                            >
+
+                        </div>
+
+
+                        <!-- 팀 수 -->
+                        <div class="col-md-4">
+
+                            <label
+                                for="teamCount"
+                                class="form-label"
+                            >
+                                팀 수
+                            </label>
+
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="teamCount"
+                                name="team_count"
+                                min="1"
+                                placeholder="예: 5"
+                                required
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- 버튼 -->
+                    <div class="mt-4">
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                        >
+                            회차 생성
+                        </button>
+
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary ms-2"
+                            id="cancelRoundCreateForm"
+                        >
+                            취소
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
         </div>
 
     </div>
+
+
+    <!-- ===================================== -->
+    <!-- 회차 목록 -->
+    <!-- ===================================== -->
+
+    <div class="card">
+
+        <div class="card-header">
+            <strong>회차 목록</strong>
+        </div>
+
+
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+
+                <table class="table table-hover mb-0">
+
+                    <thead class="table-light">
+
+                        <tr>
+                            <th>평가명</th>
+                            <th>과제명</th>
+                            <th>기간</th>
+                            <th>팀 수</th>
+                            <th>상태</th>
+                            <th>관리</th>
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for round in rounds %}
+
+                        <tr>
+
+                            <!-- 평가명 -->
+                            <td>
+                                {{ round.title }}
+                            </td>
+
+
+                            <!-- 과제명 -->
+                            <td>
+                                {{ round.assignment }}
+                            </td>
+
+
+                            <!-- 기간 -->
+                            <td>
+                                {{ round.start_date }}
+                                ~
+                                {{ round.end_date }}
+                            </td>
+
+
+                            <!-- 팀 수 -->
+                            <td>
+                                {{ round.team_count }}팀
+                            </td>
+
+
+                            <!-- 상태 -->
+                            <td>
+
+                                {% if round.status == "대기" %}
+
+                                    <span class="badge text-bg-secondary">
+                                        대기
+                                    </span>
+
+                                {% elif round.status == "진행중" %}
+
+                                    <span class="badge text-bg-primary">
+                                        진행중
+                                    </span>
+
+                                {% elif round.status == "완료" %}
+
+                                    <span class="badge text-bg-success">
+                                        완료
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge text-bg-secondary">
+                                        {{ round.status }}
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- 관리 -->
+                            <td>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    data-round-id="{{ round.id }}"
+                                    onclick="showRoundDetail(this)"
+                                >
+                                    보기
+                                </button>
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td
+                                colspan="6"
+                                class="text-center py-4 text-muted"
+                            >
+                                등록된 평가 회차가 없습니다.
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
 </div>
+
+
+<!-- ===================================== -->
+<!-- JavaScript -->
+<!-- ===================================== -->
+
+<script>
+
+    // 회차 생성 폼 열기 버튼
+    const openButton =
+        document.getElementById("openRoundCreateForm");
+
+
+    // 취소 버튼
+    const cancelButton =
+        document.getElementById("cancelRoundCreateForm");
+
+
+    // 회차 생성 영역
+    const createForm =
+        document.getElementById("roundCreateForm");
+
+
+    // 회차 생성 폼
+    const form =
+        document.getElementById("createRoundForm");
+
+
+    // =====================================
+    // "+ 회차 생성" 버튼
+    // =====================================
+
+    openButton.addEventListener("click", function () {
+
+        createForm.style.display = "block";
+
+        openButton.style.display = "none";
+
+    });
+
+
+    // =====================================
+    // "취소" 버튼
+    // =====================================
+
+    cancelButton.addEventListener("click", function () {
+
+        createForm.style.display = "none";
+
+        openButton.style.display = "inline-block";
+
+        form.reset();
+
+    });
+
+
+    // =====================================
+    // 회차 생성 전 날짜 확인
+    // =====================================
+
+    form.addEventListener("submit", function (event) {
+
+        const startDate =
+            document.getElementById("startDate").value;
+
+        const endDate =
+            document.getElementById("endDate").value;
+
+
+        // 시작일이 종료일보다 늦으면 제출하지 않음
+        if (startDate && endDate && startDate > endDate) {
+
+            event.preventDefault();
+
+            alert("종료일은 시작일보다 빠를 수 없습니다.");
+
+            return;
+
+        }
+
+    });
+
+
+    // =====================================
+    // 회차 보기
+    // =====================================
+
+    function showRoundDetail(button) {
+
+        const roundId =
+            button.dataset.roundId;
+
+
+        alert(
+            "회차 상세 화면 연결 예정입니다.\n\n" +
+            "회차 ID: " + roundId
+        );
+
+    }
+
+</script>
+
 
 {% endblock %}
