@@ -17,7 +17,8 @@ def student_team(request):
 
 @login_required
 def student_result(request):
-    return render(request, "student/result.html")
+    result = get_visible_result(request.user)
+    return render(request, "student/result.html", {"result": result})
 
 
 def get_my_team(user):
@@ -39,3 +40,8 @@ def get_my_team(user):
         .order_by("id")
     )
     return tm.team, members
+
+
+def get_visible_result(user):
+    """BE2의 score_service.get_visible_result()가 나오면 이 함수만 교체한다."""
+    return None
