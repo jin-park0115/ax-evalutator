@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h1 class="h3 mb-1">평가 템플릿 관리</h1>
+
+        <p class="text-muted mb-0">
+            평가에 사용할 템플릿을 관리할 수 있습니다.
+        </p>
+    </div>
+
+    <button
+        type="button"
+        class="btn btn-primary"
+    >
+        + 템플릿 생성
+    </button>
+
+</div>
+
+<div class="card">
+
+    <div class="card-header">
+        <strong>템플릿 목록</strong>
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover mb-0">
+
+                <thead class="table-light">
+
+                    <tr>
+                        <th>템플릿명</th>
+                        <th>유형</th>
+                        <th>문항 수</th>
+                        <th>상태</th>
+                        <th>관리</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for template in templates %}
+
+                    <tr>
+
+                        <td>
+                            {{ template.name }}
+                        </td>
+
+                        <td>
+                            {{ template.type }}
+                        </td>
+
+                        <td>
+                            {{ template.question_count }}개
+                        </td>
+
+                        <td>
+
+                            {% if template.status == "사용중" %}
+
+                                <span class="badge text-bg-success">
+                                    {{ template.status }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge text-bg-secondary">
+                                    {{ template.status }}
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                            >
+                                보기
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            템플릿이 없습니다.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

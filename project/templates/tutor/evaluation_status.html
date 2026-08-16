@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-4">
+
+    <h1 class="h3 mb-1">평가 현황</h1>
+
+    <p class="text-muted mb-0">
+        학생 및 팀의 평가 진행 현황을 확인할 수 있습니다.
+    </p>
+
+</div>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-md-4">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    전체 학생
+                </h6>
+
+                <h2 class="mb-0">
+                    {{ status.total_students }}명
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    평가 완료 학생
+                </h6>
+
+                <h2 class="mb-0">
+                    {{ status.completed_students }}명
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+
+        <div class="card h-100">
+
+            <div class="card-body">
+
+                <h6 class="text-muted">
+                    평가 미완료 학생
+                </h6>
+
+                <h2 class="mb-0">
+                    {{ status.remaining_students }}명
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="card mb-4">
+
+    <div class="card-header">
+        <strong>학생 평가 진행률</strong>
+    </div>
+
+    <div class="card-body">
+
+        <div class="progress" style="height: 25px;">
+
+            <div
+                class="progress-bar"
+                role="progressbar"
+                style="width: {{ status.completion_rate }}%;"
+                aria-valuenow="{{ status.completion_rate }}"
+                aria-valuemin="0"
+                aria-valuemax="100"
+            >
+                {{ status.completion_rate }}%
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-header">
+        <strong>팀 평가 현황</strong>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row text-center">
+
+            <div class="col-md-4">
+
+                <h6 class="text-muted">
+                    전체 팀
+                </h6>
+
+                <h3>
+                    {{ status.total_teams }}팀
+                </h3>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <h6 class="text-muted">
+                    평가 완료
+                </h6>
+
+                <h3>
+                    {{ status.completed_teams }}팀
+                </h3>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <h6 class="text-muted">
+                    평가 대기
+                </h6>
+
+                <h3>
+                    {{ status.remaining_teams }}팀
+                </h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
