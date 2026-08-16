@@ -16,6 +16,27 @@
         {% if user.is_authenticated %}
           {% if user.is_staff %}
             <a class="text-decoration-none" href="{% url 'tutor_rounds' %}">회차 관리</a>
+            <a class="text-decoration-none" href="{% url 'tutor_team_build' %}">팀 편성</a>
+
+            <div class="dropdown">
+              <a class="text-decoration-none dropdown-toggle" href="#" role="button"
+                 data-bs-toggle="dropdown" aria-expanded="false">평가</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'tutor_team_evaluation' %}">팀 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_individual_evaluation' %}">개인 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_evaluation_status' %}">평가 현황</a></li>
+              </ul>
+            </div>
+
+            <div class="dropdown">
+              <a class="text-decoration-none dropdown-toggle" href="#" role="button"
+                 data-bs-toggle="dropdown" aria-expanded="false">설정</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'tutor_templates' %}">평가 템플릿</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_settings' %}">결과 공개 설정</a></li>
+              </ul>
+            </div>
+
             <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
           {% else %}
             <a class="text-decoration-none" href="{% url 'student_home' %}">학생 홈</a>
@@ -38,4 +59,6 @@
     {% block content %}{% endblock %}
   </main>
 
-  <script src="https://cdn.jsdelivr.net/np
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
