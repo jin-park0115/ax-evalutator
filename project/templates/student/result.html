@@ -1,29 +1,76 @@
 {% extends "base.html" %}
 
+{% block title %}내 결과{% endblock %}
+
 {% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">내 결과</h2>
 
-<h2 class="mb-4">내 결과</h2>
+  {% if not result %}
+    <div class="alert alert-info">
+      아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
+    </div>
+  {% else %}
 
-<div class="card mb-3">
-  <div class="card-body">
-    <h5 class="card-title">2회차 최종점수</h5>
-    <p class="display-6 mb-2">85.6</p>
-    <p class="text-muted mb-0">팀 82.0 × 40% + 개인 88.0 × 60% = 85.6</p>
-  </div>
+    {% if result.final_score is not None %}
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="text-muted small">최종 점수</div>
+          <div class="display-6">{{ result.final_score }}</div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="row g-3 mb-4">
+      {% if result.team_score is not None %}
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="text-muted small">팀 점수</div>
+              <div class="fs-4">{{ result.team_score }}</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if result.personal_score is not None %}
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="text-muted small">개인 점수</div>
+              <div class="fs-4">{{ result.personal_score }}</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if result.rank is not None %}
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-body">
+              <div class="text-muted small">내 석차</div>
+              <div class="fs-4">{{ result.rank }}위</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if result.formula %}
+      <div class="card mb-4">
+        <div class="card-header">점수 계산 과정</div>
+        <div class="card-body">
+          <code>{{ result.formula }}</code>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if result.team_first %}
+      <div class="alert alert-success">
+        이번 회차 1위 팀은 <strong>{{ result.team_first }}</strong> 입니다.
+      </div>
+    {% endif %}
+
+  {% endif %}
 </div>
-
-<div class="card mb-3">
-  <div class="card-body">
-    <h5 class="card-title">석차</h5>
-    <p class="mb-0">전체 50명 중 <strong>7위</strong></p>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-body">
-    <h5 class="card-title">팀 성적</h5>
-    <p class="mb-0">1위 팀: <strong>3팀</strong></p>
-  </div>
-</div>
-
 {% endblock %}

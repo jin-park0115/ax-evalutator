@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}학생 홈{% endblock %}
+
 {% block content %}
 
 <h2 class="mb-4">학생 홈</h2>
@@ -20,9 +22,9 @@
       {% if state == "before" %}
         아직 진행 중인 회차가 없습니다.
       {% elif state == "open" %}
-        2회차 · Django 프로젝트 평가가 진행 중입니다.
+        평가가 진행 중입니다.
       {% else %}
-        2회차 · Django 프로젝트 평가가 마감되었습니다.
+        평가가 마감되었습니다.
       {% endif %}
     </p>
   </div>
@@ -32,19 +34,19 @@
   <div class="card-body">
     <h5 class="card-title">
       내 팀
-      {% if state == "before" %}
-        {% include "components/badge.html" with status="대기" %}
-      {% else %}
+      {% if team %}
         {% include "components/badge.html" with status="완료" %}
+      {% else %}
+        {% include "components/badge.html" with status="대기" %}
       {% endif %}
     </h5>
-    {% if state == "before" %}
-      <p class="card-text text-muted mb-0">팀 편성 대기 중입니다.</p>
-    {% else %}
+    {% if team %}
       <p class="card-text mb-0">
-        3팀 소속입니다.
+        {{ team.name }} 소속입니다.
         <a href="{% url 'student_team' %}">팀원 보기</a>
       </p>
+    {% else %}
+      <p class="card-text text-muted mb-0">팀 편성 대기 중입니다.</p>
     {% endif %}
   </div>
 </div>

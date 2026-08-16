@@ -1,26 +1,38 @@
 {% extends "base.html" %}
 
+{% block title %}팀 정보{% endblock %}
+
 {% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">팀 정보</h2>
 
-<h2 class="mb-4">내 팀</h2>
+  {% if not team %}
+    <div class="alert alert-info">
+      아직 배정된 팀이 없습니다. 팀 편성이 완료되면 이 화면에 표시됩니다.
+    </div>
+  {% else %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title mb-1">{{ team.name }}</h5>
+        <p class="text-muted mb-0">팀원 {{ members|length }}명</p>
+      </div>
+    </div>
 
-<div class="card mb-3">
-  <div class="card-body">
-    <h5 class="card-title">3팀</h5>
-    <p class="card-text text-muted mb-0">2회차 · 발표 순서 3번</p>
-  </div>
+    <div class="card">
+      <div class="card-header">팀원 목록</div>
+      <ul class="list-group list-group-flush">
+        {% for m in members %}
+          <li class="list-group-item">
+            <span class="fw-semibold">{{ m.student.name }}</span>
+            {% if m.student.user_id == user.id %}
+              <span class="badge bg-primary ms-2">나</span>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">등록된 팀원이 없습니다.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 </div>
-
-<div class="card">
-  <div class="card-body">
-    <h5 class="card-title mb-3">팀원</h5>
-    <ul class="list-group list-group-flush">
-      <li class="list-group-item">김철수</li>
-      <li class="list-group-item">이영희</li>
-      <li class="list-group-item">박민수</li>
-      <li class="list-group-item">안형준 <span class="badge bg-secondary">나</span></li>
-    </ul>
-  </div>
-</div>
-
 {% endblock %}
