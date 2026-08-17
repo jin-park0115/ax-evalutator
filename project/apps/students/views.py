@@ -38,7 +38,36 @@ def get_my_team(user):
 
 
 def get_visible_result(user):
-    return None
+    """get_visible_result(user, round) 계약의 임시 구현.
+    BE2의 calculate_round()/score_service.get_visible_result()가 나오면
+    이 함수 전체를 그걸로 교체한다.
+
+    team_first(1위 팀명), formula(계산 과정 문자열)는 집계 로직이
+    있어야 나오는 값이라 여기서는 채우지 않는다.
+    """
+    from apps.evaluations.models import EvaluationRound, ScoreResult
+
+    round_obj = (
+        EvaluationRound.objects.filter(
+            status=EvaluationRound.Status.IN_PROGRESS
+        )
+        .order_by("-id")
+        .first()
+        or EvaluationRound.objects.order_by("-id").first()
+    )
+    if not round_obj:
+        return None
+
+    score = ScoreResult.objects.filter(round=round_obj, user=user).first()
+    if not score:
+        return None
+
+    return {
+        "team_score": score.team_score if round_obj.team_rank_visible else None,
+        "personal_score": score.individual_score if round_obj.individual_score_visible else None,
+        "final_score": score.final_score,
+        "rank": score.rank if round_obj.individual_rank_visible else None,
+    }
 
 
 # ==========================================
