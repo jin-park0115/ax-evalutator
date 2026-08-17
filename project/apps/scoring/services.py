@@ -1,4 +1,25 @@
-def calculate_seed_scores(round_scores: list[dict[int, float]]) -> dict[int, float]:
+from apps.evaluations.models import (
+    IndividualEvaluation,
+    TeamEvaluation,
+    TutorEvaluation,
+    ScoreResult,
+)
+
+
+def calculate_seed_scores(
+    round_scores: list[dict[int, float]],
+) -> dict[int, float]:
+    """
+    여러 회차의 학생별 점수를 받아
+    학생별 평균 점수를 계산한다.
+
+    예:
+    1회차: {1: 80, 2: 90}
+    2회차: {1: 90, 2: 80}
+
+    결과:
+    {1: 85, 2: 85}
+    """
     totals: dict[int, float] = {}
     counts: dict[int, int] = {}
 
@@ -7,16 +28,72 @@ def calculate_seed_scores(round_scores: list[dict[int, float]]) -> dict[int, flo
             totals[student_id] = totals.get(student_id, 0.0) + score
             counts[student_id] = counts.get(student_id, 0) + 1
 
-    return {student_id: totals[student_id] / counts[student_id] for student_id in totals}
+    return {
+        student_id: totals[student_id] / counts[student_id]
+        for student_id in totals
+    }
 
 
-def calculate_rankings(scores: dict[int, float]) -> list[tuple[int, float, int]]:
-    sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    return [(student_id, score, index + 1) for index, (student_id, score) in enumerate(sorted_scores)]
+def get_seed_scores_from_db() -> dict[int, float]:
+    """
+    종료된 이전 회차의 ScoreResult.final_score를 가져와
+    학생별 평균 점수를 누적 시드로 계산한다.
+    """
+
+    results = (
+        ScoreResult.objects
+        .filter(round__status="finished")
+        .values("user_id", "final_score")
+        .order_by("round_id", "user_id")
+    )
+
+    student_scores: dict[int, list[float]] = {}
+
+    for result in results:
+        student_id = result["user_id"]
+        final_score = result["final_score"]
+
+        student_scores.setdefault(student_id, []).append(final_score)
+
+    return {
+        student_id: sum(scores) / len(scores)
+        for student_id, scores in student_scores.items()
+    }
 
 
-def calculate_seeds(round_scores: list[dict[int, float]]) -> dict[int, float]:
-    return calculate_seed_scores(round_scores)
+def calculate_rankings(
+    scores: dict[int, float],
+    names: dict[int, str],
+) -> list[tuple[int, float, int]]:
+    """
+    점수가 높은 순서로 석차를 계산한다.
+    동점자는 같은 순위를 사용하고,
+    이름을 가나다순으로 정렬 기준에 사용한다.
+    """
+
+    sorted_ids = sorted(
+        scores.keys(),
+        key=lambda student_id: (
+            -scores[student_id],
+            names[student_id],
+        ),
+    )
+
+    rankings = []
+
+    for index, student_id in enumerate(sorted_ids):
+        score = scores[student_id]
+
+        if index > 0 and score == scores[sorted_ids[index - 1]]:
+            rank = rankings[index - 1][2]
+        else:
+            rank = index + 1
+
+        rankings.append(
+            (student_id, score, rank)
+        )
+
+    return rankings
 
 
 def calculate_axis_score(
@@ -27,7 +104,11 @@ def calculate_axis_score(
 ) -> float:
     if tutor_score is None:
         return student_score
-    return student_score * student_weight + tutor_score * tutor_weight
+
+    return (
+        student_score * student_weight
+        + tutor_score * tutor_weight
+    )
 
 
 def calculate_team_score(
@@ -37,7 +118,10 @@ def calculate_team_score(
     tutor_weight: float,
 ) -> float:
     return calculate_axis_score(
-        student_team_score, tutor_team_score, student_weight, tutor_weight
+        student_team_score,
+        tutor_team_score,
+        student_weight,
+        tutor_weight,
     )
 
 
@@ -48,7 +132,10 @@ def calculate_individual_score(
     tutor_weight: float,
 ) -> float:
     return calculate_axis_score(
-        student_individual_score, tutor_individual_score, student_weight, tutor_weight
+        student_individual_score,
+        tutor_individual_score,
+        student_weight,
+        tutor_weight,
     )
 
 
@@ -58,18 +145,161 @@ def calculate_final_score(
     team_weight: float = 0.4,
     individual_weight: float = 0.6,
 ) -> float:
-    return team_score * team_weight + individual_score * individual_weight
+    return (
+        team_score * team_weight
+        + individual_score * individual_weight
+    )
 
-def calculate_trimmed_mean(scores: list[float]) -> float:
+
+def calculate_trimmed_mean(
+    scores: list[float],
+) -> float:
     if len(scores) < 5:
         return sum(scores) / len(scores)
+
     sorted_scores = sorted(scores)
     trimmed = sorted_scores[1:-1]
+
     return sum(trimmed) / len(trimmed)
 
 
-def calculate_average_excluding_missing(scores: list[float | None]) -> float | None:
-    valid_scores = [score for score in scores if score is not None]
+def calculate_average_excluding_missing(
+    scores: list[float | None],
+) -> float | None:
+    valid_scores = [
+        score
+        for score in scores
+        if score is not None
+    ]
+
     if not valid_scores:
         return None
+
     return sum(valid_scores) / len(valid_scores)
+
+
+def get_team_score_from_db(
+    round_id: int,
+    team_id: int,
+) -> float | None:
+    scores = list(
+        TeamEvaluation.objects.filter(
+            round_id=round_id,
+            target_team_id=team_id,
+            is_final=True,
+        ).values_list(
+            "score",
+            flat=True,
+        )
+    )
+
+    return calculate_average_excluding_missing(scores)
+
+
+def get_individual_score_from_db(
+    round_id: int,
+    student_id: int,
+) -> float | None:
+    scores = list(
+        IndividualEvaluation.objects.filter(
+            round_id=round_id,
+            target_id=student_id,
+            is_final=True,
+        ).values_list(
+            "score",
+            flat=True,
+        )
+    )
+
+    return (
+        calculate_trimmed_mean(scores)
+        if len(scores) >= 1
+        else None
+    )
+
+
+def get_tutor_team_score_from_db(
+    round_id: int,
+    team_id: int,
+) -> float | None:
+    scores = list(
+        TutorEvaluation.objects.filter(
+            round_id=round_id,
+            team_id=team_id,
+        ).values_list(
+            "score",
+            flat=True,
+        )
+    )
+
+    return calculate_average_excluding_missing(scores)
+
+
+def get_tutor_individual_score_from_db(
+    round_id: int,
+    student_id: int,
+) -> float | None:
+    scores = list(
+        TutorEvaluation.objects.filter(
+            round_id=round_id,
+            user_id=student_id,
+        ).values_list(
+            "score",
+            flat=True,
+        )
+    )
+
+    return calculate_average_excluding_missing(scores)
+
+
+def calculate_student_result(
+    round,
+    student_id: int,
+    team_id: int,
+) -> dict:
+    student_team_score = get_team_score_from_db(
+        round.id,
+        team_id,
+    )
+
+    student_individual_score = get_individual_score_from_db(
+        round.id,
+        student_id,
+    )
+
+    tutor_team_score = get_tutor_team_score_from_db(
+        round.id,
+        team_id,
+    )
+
+    tutor_individual_score = get_tutor_individual_score_from_db(
+        round.id,
+        student_id,
+    )
+
+    team_score = calculate_team_score(
+        student_team_score,
+        tutor_team_score,
+        round.student_weight,
+        round.tutor_weight,
+    )
+
+    individual_score = calculate_individual_score(
+        student_individual_score,
+        tutor_individual_score,
+        round.student_weight,
+        round.tutor_weight,
+    )
+
+    final_score = calculate_final_score(
+        team_score,
+        individual_score,
+        round.team_weight,
+        round.individual_weight,
+    )
+
+    return {
+        "team_score": team_score,
+        "individual_score": individual_score,
+        "final_score": final_score,
+    }
