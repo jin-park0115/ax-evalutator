@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load socialaccount %} <!-- socialaccount 로드 추가 -->
 
 {% block content %}
 <div class="row justify-content-center">
@@ -25,6 +26,13 @@
           </div>
           <button type="submit" class="btn btn-primary w-100">로그인</button>
         </form>
+
+        <hr class="my-4">
+
+        <!-- 구글 로그인 버튼 -->
+        <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger w-100">
+          Google 계정으로 로그인
+        </a>
       </div>
     </div>
   </div>

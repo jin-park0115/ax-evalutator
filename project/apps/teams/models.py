@@ -45,3 +45,26 @@ class TeamMember(models.Model):
 
     def __str__(self) -> str:
         return f"{self.team.name} - {self.student}"
+    
+    # apps/teams/models.py 하단에 추가
+
+class TeamUserScoreSeed(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+    )
+    round = models.ForeignKey(
+        "evaluations.EvaluationRound",
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+    )
+    cumulative_seed = models.FloatField(default=0.0, verbose_name="누적 시드 점수")
+
+    def __str__(self):
+        return f"[{self.team.name}] {self.user} - Seed: {self.cumulative_seed}"
