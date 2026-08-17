@@ -1,6 +1,6 @@
 from django.db import models
+from django.conf import settings
 from apps.evaluations.models import EvaluationRound
-from apps.students.models import Student
 
 
 class Team(models.Model):
@@ -23,16 +23,19 @@ class Team(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성 일시")
 
     def __str__(self) -> str:
-        return f"[{self.round.name}] {self.name}"
+        return f"[{getattr(self.round, 'name', self.round_id)}] {self.name}"
 
 
 class TeamMember(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="members")
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="team_memberships")
+    # Student 대신 User(AUTH_USER_MODEL) 직접 참조
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="team_memberships"
+    )
 
     class Meta:
-        # 1. 한 팀에 동일한 수강생 중복 등록 방지
-        # 2. 한 회차 내에서 수강생이 중복으로 다른 팀에 배정되는 것을 DB 레벨에서 차단
         constraints = [
             models.UniqueConstraint(
                 fields=["team", "student"],

@@ -1,5 +1,5 @@
+from django.conf import settings
 from django.db import models
-from apps.students.models import Student
 
 
 class EvaluationRound(models.Model):
@@ -49,13 +49,15 @@ class EvaluationRound(models.Model):
 
 class Evaluation(models.Model):
     round = models.ForeignKey(EvaluationRound, on_delete=models.CASCADE)
+    
+    # Student -> settings.AUTH_USER_MODEL로 변경
     evaluator = models.ForeignKey(
-        Student,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="given_evaluations",
     )
     target = models.ForeignKey(
-        Student,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="received_evaluations",
     )

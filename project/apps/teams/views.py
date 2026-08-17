@@ -5,10 +5,12 @@ from django.http import JsonResponse
 from django.db import transaction
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth import get_user_model
 
 from apps.evaluations.models import EvaluationRound
-from apps.students.models import Student
 from .models import Team, TeamMember
+
+User = get_user_model()
 
 
 # ---------------------------------------------------------------------------
@@ -33,11 +35,6 @@ def calculate_optimal_team_count(total_students):
 
 
 def is_round_editable(target_round):
-    """
-    회차 상태에 따라 팀 편성/수정이 가능한지 검증하는 함수
-    'UPCOMING'(시작 전) 또는 'DRAFT'(수정 중/준비 중) 상태일 때만 True 반환
-    (프로젝트의 EvaluationRound status 필드값에 맞게 상태 문자열을 조정해주세요)
-    """
     editable_statuses = ["UPCOMING", "DRAFT", "READY"]
     return getattr(target_round, "status", "UPCOMING") in editable_statuses
 
@@ -47,8 +44,6 @@ def is_round_editable(target_round):
 # ---------------------------------------------------------------------------
 
 # 1. 회차별 전체 팀 및 팀원 목록 조회
-# - 회차 시작 전: 관리자만 조회 가능
-# - 회차 시작 후: 일반 사용자도 조회 가능
 @require_http_methods(["GET"])
 def round_team_members(request):
     round_id = request.GET.get("round_id")
@@ -61,7 +56,6 @@ def round_team_members(request):
 
     target_round = get_object_or_404(EvaluationRound, id=round_id)
 
-    # [권한 체크] 회차가 시작 전 상태인데 관리자(staff)가 아닌 경우 조회 거부
     is_admin = request.user.is_authenticated and request.user.is_staff
     if is_round_editable(target_round) and not is_admin:
         return JsonResponse(
@@ -80,7 +74,8 @@ def round_team_members(request):
         members_data = [
             {
                 "student_id": tm.student.id,
-                "name": getattr(tm.student, "name", str(tm.student)),
+                "name": getattr(tm.student, "name", getattr(tm.student, "username", str(tm.student))),
+                "email": getattr(tm.student, "email", ""),
             }
             for tm in team.members.all()
         ]
@@ -103,7 +98,8 @@ def round_team_members(request):
         status=200,
     )
 
-# 2. 팀 수동 생성 (시작 전 상태에서만 허용)
+
+# 2. 팀 수동 생성
 @staff_member_required
 @require_http_methods(["POST"])
 def create_team(request):
@@ -120,14 +116,12 @@ def create_team(request):
 
     target_round = get_object_or_404(EvaluationRound, id=round_id)
 
-    # 상태 검증: 시작 전/수정 가능 상태인지 체크
     if not is_round_editable(target_round):
         return JsonResponse(
             {"error": f"현재 회차 상태({target_round.status})에서는 팀을 신규 생성할 수 없습니다."},
             status=400,
         )
 
-    # 중복 팀 이름 방지
     if Team.objects.filter(round=target_round, name=team_name).exists():
         return JsonResponse({"error": f"이미 해당 회차에 '{team_name}'이(가) 존재합니다."}, status=400)
 
@@ -139,7 +133,7 @@ def create_team(request):
     )
 
 
-# 3. 수강생 팀 수동 배정 및 이동 (시작 전 상태에서만 허용)
+# 3. 수강생 팀 수동 배정 및 이동
 @staff_member_required
 @require_http_methods(["POST"])
 def assign_or_move_student(request):
@@ -154,11 +148,11 @@ def assign_or_move_student(request):
     if not student_id or not target_team_id:
         return JsonResponse({"error": "student_id와 team_id는 필수입니다."}, status=400)
 
-    student = get_object_or_404(Student, id=student_id)
+    # Student 모델 대신 User 모델에서 STUDENT 역할인 수강생 조회
+    student = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
     target_team = get_object_or_404(Team, id=target_team_id)
     target_round = target_team.round
 
-    # 상태 검증: 시작 전/수정 가능 상태인지 체크
     if not is_round_editable(target_round):
         return JsonResponse(
             {"error": f"현재 회차 상태({target_round.status})에서는 팀 구성을 변경할 수 없습니다."},
@@ -166,7 +160,6 @@ def assign_or_move_student(request):
         )
 
     with transaction.atomic():
-        # 해당 회차 내에 이미 다른 팀에 배정되어 있다면 기존 팀에서 삭제 (동일 회차 내 1인 1팀 보장)
         existing_membership = TeamMember.objects.filter(
             team__round=target_round, student=student
         ).first()
@@ -178,13 +171,14 @@ def assign_or_move_student(request):
 
         TeamMember.objects.create(team=target_team, student=student)
 
+    student_display_name = getattr(student, "name", student.username)
     return JsonResponse(
-        {"message": f"{student} 수강생이 '{target_team.name}' 팀으로 배정되었습니다."},
+        {"message": f"{student_display_name} 수강생이 '{target_team.name}' 팀으로 배정되었습니다."},
         status=200,
     )
 
 
-# 4. 무작위 팀 자동 편성 (수동 고정 수강생 반영, 시작 전 상태에서만 허용)
+# 4. 무작위 팀 자동 편성
 @staff_member_required
 @require_http_methods(["POST"])
 def auto_assign_teams(request):
@@ -201,14 +195,14 @@ def auto_assign_teams(request):
 
     target_round = get_object_or_404(EvaluationRound, id=round_id)
 
-    # 상태 검증
     if not is_round_editable(target_round):
         return JsonResponse(
             {"error": f"현재 회차 상태({target_round.status})에서는 자동 편성을 실행할 수 없습니다."},
             status=400,
         )
 
-    all_students = list(Student.objects.all())
+    # Student 모델 대신 User 모델에서 STUDENT 역할을 가진 사용자 전체 추출
+    all_students = list(User.objects.filter(role=User.Role.STUDENT))
     total_students_count = len(all_students)
 
     if total_students_count == 0:
@@ -228,7 +222,6 @@ def auto_assign_teams(request):
                 team_to_delete.delete()
             existing_teams = existing_teams[:num_teams]
 
-        # 고정 멤버 및 인원 카운트
         assigned_memberships = TeamMember.objects.filter(
             team__round=target_round
         ).select_related("student")
@@ -244,7 +237,6 @@ def auto_assign_teams(request):
         unassigned_students = [s for s in all_students if s.id not in assigned_student_ids]
         random.shuffle(unassigned_students)
 
-        # 라운드 로빈 배치 (오차 범위 1명)
         for student in unassigned_students:
             min_count = min(team_member_counts.values())
             candidate_teams = [t_id for t_id, count in team_member_counts.items() if count == min_count]
@@ -264,7 +256,7 @@ def auto_assign_teams(request):
     )
 
 
-# 5. [신규] 팀 편성 확정 및 회차 상태 전이 API
+# 5. 팀 편성 확정
 @staff_member_required
 @require_http_methods(["POST"])
 def confirm_team_assignment(request):
@@ -280,21 +272,18 @@ def confirm_team_assignment(request):
 
     target_round = get_object_or_404(EvaluationRound, id=round_id)
 
-    # 이미 확정되었거나 진행/종료된 경우 중복 확정 방지
     if not is_round_editable(target_round):
         return JsonResponse(
             {"error": f"이미 확정되었거나 변경할 수 없는 상태입니다. (현재 상태: {target_round.status})"},
             status=400,
         )
 
-    # 팀이 하나도 구성되지 않은 경우 확정 불가
     team_count = Team.objects.filter(round=target_round).count()
     if team_count == 0:
         return JsonResponse({"error": "생성된 팀이 없습니다. 최소 1개 이상의 팀을 편성해주세요."}, status=400)
 
     with transaction.atomic():
-        # 회차 상태를 확정/시작가능 상태로 전이 (모델 field 정의에 맞는 값으로 수정)
-        target_round.status = "CONFIRMED"  # 혹은 "IN_PROGRESS" / "READY"
+        target_round.status = "CONFIRMED"
         target_round.save()
 
     return JsonResponse(
