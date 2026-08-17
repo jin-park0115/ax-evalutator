@@ -6,17 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AX Evaluator</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
   <link href="{% static 'css/style.css' %}" rel="stylesheet">
   <style>
     /* KANT + Threads 스타일 — 밝은 배경 + 상단 네비만 어두운 히어로.
        Bootstrap 기본 클래스를 직접 다듬어서 기존 화면 전체에
        템플릿 수정 없이 일괄 적용 */
 
+    html {
+      font-size: 18px; /* Bootstrap 기본 16px → rem 기반 컴포넌트 전체가 같이 커짐 */
+    }
     body {
       background-color: #fafafa;
       color: #1a1a1a;
-      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
     /* 네비게이션 — 어두운 히어로 밴드 + 도트 패턴 */
