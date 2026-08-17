@@ -96,8 +96,10 @@ AUTH_USER_MODEL = 'accounts.User'
 
 AUTHENTICATION_BACKENDS = [
     'apps.accounts.backends.RoleBasedAuthBackend',
-    'django.contrib.auth.backends.ModelBackend',
-    
+    # ModelBackend는 role 검사 없이 이메일+비밀번호만 확인해서
+    # RoleBasedAuthBackend가 막은 PENDING/APPROVED 계정을 다시 통과시켰음.
+    # RoleBasedAuthBackend가 이미 비밀번호 확인을 포함하므로 제거.
+
     # --- allauth 인증 백엔드 추가 ---
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
