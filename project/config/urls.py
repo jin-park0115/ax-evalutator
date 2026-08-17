@@ -7,6 +7,7 @@ from apps.accounts.views import home
 from apps.evaluations.views_tutor import (
     round_list,
     team_build,
+    open_team_presentation,
     team_evaluation,
     individual_evaluation,
     template_list,
@@ -18,6 +19,7 @@ from apps.evaluations.views_eval import (
     team_evaluation_list,
     team_evaluation_form,
     peer_evaluation_form,
+    submit_final,
 )
 
 
@@ -58,6 +60,11 @@ urlpatterns = [
         "tutor/team-build/",
         team_build,
         name="tutor_team_build",
+    ),
+    path(
+        "tutor/teams/<int:team_id>/open/",
+        open_team_presentation,
+        name="open_team_presentation",
     ),
 
     # 팀 평가
@@ -118,6 +125,11 @@ urlpatterns = [
         "eval/peer/",
         peer_evaluation_form,
         name="eval_peer_form",
+    ),
+    path(
+        "eval/submit-final/",
+        submit_final,
+        name="eval_submit_final",
     ),
 
 

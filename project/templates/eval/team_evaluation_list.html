@@ -8,19 +8,29 @@
     <div class="mb-4">
         <h1 class="h3 mb-1">팀 평가</h1>
         <p class="text-muted mb-0">
-            내 팀을 제외한 다른 팀을 평가할 수 있습니다. 이미 평가한 팀은 목록에서 제외됩니다.
+            발표가 시작된 팀부터 순서대로 평가할 수 있습니다. 최종 제출 전까지는 몇 번이든 수정할 수 있습니다.
         </p>
     </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
 
     {% if not round %}
     <div class="alert alert-info">
         진행 중인 평가 회차가 없습니다.
     </div>
+    {% elif finalized %}
+    <div class="alert alert-success">
+        최종 제출을 완료했습니다. 더 이상 수정할 수 없습니다.
+    </div>
     {% else %}
 
-    <div class="card">
+    <div class="card mb-4">
         <div class="card-header">
-            <strong>평가 가능한 팀</strong>
+            <strong>발표가 시작된 팀</strong>
             <span class="text-muted">({{ teams|length }}개)</span>
         </div>
 
@@ -31,6 +41,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>팀명</th>
+                            <th>상태</th>
                             <th style="width: 160px;">평가</th>
                         </tr>
                     </thead>
@@ -41,15 +52,22 @@
                         <tr>
                             <td>{{ team.name }}</td>
                             <td>
+                                {% if team.id in saved_team_ids %}
+                                <span class="badge text-bg-success">임시저장됨</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary">미작성</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 <a href="{% url 'eval_team_form' team.id %}" class="btn btn-sm btn-primary">
-                                    평가하기
+                                    작성/수정
                                 </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="2" class="text-center py-4 text-muted">
-                                평가할 수 있는 팀이 없습니다. (팀 편성 전이거나, 모든 팀 평가를 이미 완료했습니다)
+                            <td colspan="3" class="text-center py-4 text-muted">
+                                아직 발표가 시작된 팀이 없습니다. 튜터가 발표를 시작하면 여기 표시됩니다.
                             </td>
                         </tr>
                         {% endfor %}
@@ -58,6 +76,22 @@
 
                 </table>
             </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <strong>최종 제출</strong>
+                <p class="text-muted small mb-0">
+                    제출하면 팀 평가·개인 상호평가 전체가 한 번에 잠깁니다. 모든 팀 발표가 끝난 뒤 눌러주세요.
+                </p>
+            </div>
+            <form method="post" action="{% url 'eval_submit_final' %}"
+                  onsubmit="return confirm('최종 제출하면 더 이상 수정할 수 없습니다. 계속할까요?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">최종 제출</button>
+            </form>
         </div>
     </div>
 

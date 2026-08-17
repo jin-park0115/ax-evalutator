@@ -16,6 +16,12 @@
         {% endfor %}
     {% endif %}
 
+    {% if existing_answers %}
+    <div class="alert alert-info">
+        이전에 임시저장한 답변이 있습니다. 수정 후 다시 저장하면 갱신됩니다.
+    </div>
+    {% endif %}
+
     {% if not items %}
     <div class="alert alert-info">
         아직 등록된 팀 평가 문항이 없습니다. 튜터가 평가 템플릿을 등록하면 여기에 표시됩니다.
@@ -40,7 +46,9 @@
                         <div class="form-check">
                             <input class="form-check-input" type="radio"
                                    name="item_{{ item.key }}" id="{{ item.key }}_{{ score }}"
-                                   value="{{ score }}" required>
+                                   value="{{ score }}"
+                                   {% if item.existing_value|stringformat:"s" == score %}checked{% endif %}
+                                   required>
                             <label class="form-check-label" for="{{ item.key }}_{{ score }}">
                                 {{ score }}
                             </label>
@@ -50,7 +58,7 @@
                 </div>
                 {% endfor %}
 
-                <button type="submit" class="btn btn-primary">제출</button>
+                <button type="submit" class="btn btn-primary">임시 저장</button>
 
             </div>
         </div>

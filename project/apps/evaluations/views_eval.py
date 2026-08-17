@@ -2,6 +2,14 @@
 # BE2(전예진) 담당 서비스 함수가 아직 없어서, 계약(get_evaluable_teams 등)에
 # 맞춰 실제 모델을 직접 조회/저장하는 임시 구현. BE2 함수가 나오면
 # 표시된 지점만 그 함수 호출로 교체하면 된다.
+#
+# 확정된 규칙 (2026-08-17, 채희주/전예진/안형준 합의):
+# - 팀 발표 순서대로 평가가 "누적" 오픈된다. 1조 발표 시 1조만 열리고,
+#   2조 발표 시 1조는 열린 채로 2조도 함께 열린다 (닫히지 않음).
+# - 열려 있는 동안은 임시저장/수정이 자유롭다 (TeamEvaluation/
+#   IndividualEvaluation.is_final=False).
+# - 학생이 "최종 제출"을 누르는 순간 그 학생의 해당 회차 답변 전체가
+#   한 번에 is_final=True로 잠긴다. 그 전까지는 팀별 개별 제출/잠금이 없다.
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -51,6 +59,20 @@ def _get_template_items(round_obj, template_type):
     return template.criteria
 
 
+def _has_finalized(user, round_obj):
+    """이 학생이 이번 회차 최종 제출을 이미 눌렀는지"""
+    if not round_obj:
+        return False
+    return (
+        TeamEvaluation.objects.filter(
+            round=round_obj, submitted_by=user, is_final=True
+        ).exists()
+        or IndividualEvaluation.objects.filter(
+            round=round_obj, evaluator=user, is_final=True
+        ).exists()
+    )
+
+
 # =====================================================
 # 팀 평가
 # URL: eval_team_list, eval_team_form
@@ -58,47 +80,74 @@ def _get_template_items(round_obj, template_type):
 
 @login_required
 def team_evaluation_list(request):
-    """get_evaluable_teams(user, round) 계약 — 내 팀 제외 + 이미 평가한 팀 제외"""
+    """get_evaluable_teams(user, round) 계약
+    — 내 팀 제외 + eval_opened_at이 설정된(발표 시작된) 팀만, 누적 오픈이라
+      한번 열리면 계속 목록에 남는다 (이미 임시저장했어도 사라지지 않음)."""
     round_obj = _current_round()
     my_team = _get_my_team(request.user, round_obj)
+    finalized = _has_finalized(request.user, round_obj)
 
     teams = Team.objects.none()
+    saved_team_ids = set()
     if round_obj:
-        already_evaluated_ids = TeamEvaluation.objects.filter(
-            round=round_obj, submitted_by=request.user
-        ).values_list("target_team_id", flat=True)
-
-        teams = Team.objects.filter(round=round_obj)
+        teams = Team.objects.filter(
+            round=round_obj, eval_opened_at__isnull=False
+        )
         if my_team:
             teams = teams.exclude(id=my_team.id)
-        teams = teams.exclude(id__in=already_evaluated_ids).order_by("name")
+        teams = teams.order_by("eval_opened_at")
+
+        saved_team_ids = set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, submitted_by=request.user
+            ).values_list("target_team_id", flat=True)
+        )
 
     return render(
         request,
         "eval/team_evaluation_list.html",
-        {"round": round_obj, "my_team": my_team, "teams": teams},
+        {
+            "round": round_obj,
+            "my_team": my_team,
+            "teams": teams,
+            "saved_team_ids": saved_team_ids,
+            "finalized": finalized,
+        },
     )
 
 
 @login_required
 def team_evaluation_form(request, team_id):
-    """get_template_items + save_team_evaluation(user, round, target_team, answers) 계약"""
+    """get_template_items + save_team_evaluation(user, round, target_team, answers) 계약
+    — 최종 제출 전까지는 임시저장(is_final=False)이라 여러 번 다시 열어 수정 가능."""
     round_obj = _current_round()
     target_team = get_object_or_404(Team, id=team_id)
     my_team = _get_my_team(request.user, round_obj)
+    finalized = _has_finalized(request.user, round_obj)
 
-    # 서버 측 검증 (화면에서 목록을 숨기는 것과 별개로, URL 직접 입력 방어)
     if my_team and my_team.id == target_team.id:
         messages.error(request, "본인 팀은 평가할 수 없습니다.")
         return redirect("eval_team_list")
 
-    if round_obj and TeamEvaluation.objects.filter(
-        round=round_obj, submitted_by=request.user, target_team=target_team
-    ).exists():
-        messages.error(request, "이미 평가한 팀입니다.")
+    if not target_team.eval_opened_at:
+        messages.error(request, "아직 발표가 시작되지 않은 팀입니다.")
+        return redirect("eval_team_list")
+
+    if finalized:
+        messages.error(request, "이미 최종 제출을 완료해 수정할 수 없습니다.")
         return redirect("eval_team_list")
 
     items = _get_template_items(round_obj, EvaluationTemplate.TemplateType.TEAM)
+
+    existing = TeamEvaluation.objects.filter(
+        round=round_obj, submitted_by=request.user, target_team=target_team
+    ).first()
+    existing_answers = existing.responses if existing else {}
+    # 템플릿은 변수 키로 dict 조회를 못 하므로 미리 값을 붙여서 넘긴다
+    items = [
+        {**item, "existing_value": existing_answers.get(item.get("key"))}
+        for item in items
+    ]
 
     if request.method == "POST":
         answers = {}
@@ -116,23 +165,30 @@ def team_evaluation_form(request, team_id):
 
             with transaction.atomic():
                 # save_team_evaluation(user, round, target_team, answers)
-                # ← BE2 함수 나오면 아래 create() 블록을 그 함수 호출로 교체
-                TeamEvaluation.objects.create(
+                # ← BE2 함수 나오면 아래 update_or_create() 블록을 그 함수 호출로 교체
+                TeamEvaluation.objects.update_or_create(
                     round=round_obj,
-                    evaluator_team=my_team,
-                    target_team=target_team,
                     submitted_by=request.user,
-                    score=avg_score,
-                    responses=answers,
-                    is_final=True,
+                    target_team=target_team,
+                    defaults={
+                        "evaluator_team": my_team,
+                        "score": avg_score,
+                        "responses": answers,
+                        "is_final": False,
+                    },
                 )
-            messages.success(request, f"{target_team.name} 평가가 제출되었습니다.")
+            messages.success(request, f"{target_team.name} 평가가 임시저장되었습니다.")
             return redirect("eval_team_list")
 
     return render(
         request,
         "eval/team_evaluation_form.html",
-        {"round": round_obj, "target_team": target_team, "items": items},
+        {
+            "round": round_obj,
+            "target_team": target_team,
+            "items": items,
+            "existing_answers": existing_answers,
+        },
     )
 
 
@@ -141,29 +197,50 @@ def team_evaluation_form(request, team_id):
 # URL: eval_peer_form
 # =====================================================
 
+def _build_member_rows(members, items, existing_answers):
+    """템플릿이 변수 키로 dict 조회를 못 하므로, 팀원별 문항에
+    기존 답변을 미리 붙여서 순수 리스트 구조로 만든다."""
+    rows = []
+    for member in members:
+        member_answers = existing_answers.get(member.student_id, {})
+        rows.append({
+            "member": member,
+            "items": [
+                {**item, "existing_value": member_answers.get(item.get("key"))}
+                for item in items
+            ],
+        })
+    return rows
+
+
 @login_required
 def peer_evaluation_form(request):
-    """get_evaluable_members + save_peer_evaluations(user, round, answers) 계약"""
+    """get_evaluable_members + save_peer_evaluations(user, round, answers) 계약
+    — 임시저장 방식, 최종 제출 전까지 몇 번이든 다시 저장 가능."""
     round_obj = _current_round()
     my_team = _get_my_team(request.user, round_obj)
+    finalized = _has_finalized(request.user, round_obj)
 
     members = TeamMember.objects.none()
-    already_done = False
     if my_team and round_obj:
         members = (
             TeamMember.objects.filter(team=my_team)
             .exclude(student=request.user)
             .select_related("student")
         )
-        already_done = IndividualEvaluation.objects.filter(
-            round=round_obj, evaluator=request.user
-        ).exists()
 
     items = _get_template_items(round_obj, EvaluationTemplate.TemplateType.INDIVIDUAL)
 
+    existing_answers = {}
+    if round_obj:
+        for ie in IndividualEvaluation.objects.filter(
+            round=round_obj, evaluator=request.user
+        ):
+            existing_answers[ie.target_id] = ie.responses
+
     if request.method == "POST":
-        if already_done:
-            messages.error(request, "이미 제출한 개인 상호평가입니다.")
+        if finalized:
+            messages.error(request, "이미 최종 제출을 완료해 수정할 수 없습니다.")
             return redirect("eval_peer_form")
 
         with transaction.atomic():
@@ -185,9 +262,8 @@ def peer_evaluation_form(request):
                         "eval/peer_evaluation_form.html",
                         {
                             "round": round_obj,
-                            "members": members,
-                            "items": items,
-                            "already_done": already_done,
+                            "member_rows": _build_member_rows(members, items, existing_answers),
+                            "finalized": finalized,
                         },
                     )
 
@@ -204,20 +280,49 @@ def peer_evaluation_form(request):
                     defaults={
                         "score": avg_score,
                         "responses": answers,
-                        "is_final": True,
+                        "is_final": False,
                     },
                 )
 
-        messages.success(request, "개인 상호평가가 제출되었습니다.")
-        return redirect("student_home")
+        messages.success(request, "개인 상호평가가 임시저장되었습니다.")
+        return redirect("eval_peer_form")
 
     return render(
         request,
         "eval/peer_evaluation_form.html",
         {
             "round": round_obj,
-            "members": members,
-            "items": items,
-            "already_done": already_done,
+            "member_rows": _build_member_rows(members, items, existing_answers),
+            "finalized": finalized,
         },
     )
+
+
+# =====================================================
+# 최종 제출
+# URL: eval_submit_final
+# =====================================================
+
+@login_required
+def submit_final(request):
+    """submit_final(user, round) 계약
+    — 이 학생이 임시저장해둔 TeamEvaluation/IndividualEvaluation 전체를
+      한 번에 is_final=True로 잠근다. 이후 수정 불가."""
+    round_obj = _current_round()
+
+    if request.method == "POST":
+        if _has_finalized(request.user, round_obj):
+            messages.error(request, "이미 최종 제출을 완료했습니다.")
+            return redirect("eval_team_list")
+
+        with transaction.atomic():
+            TeamEvaluation.objects.filter(
+                round=round_obj, submitted_by=request.user
+            ).update(is_final=True)
+            IndividualEvaluation.objects.filter(
+                round=round_obj, evaluator=request.user
+            ).update(is_final=True)
+
+        messages.success(request, "최종 제출이 완료되었습니다. 더 이상 수정할 수 없습니다.")
+
+    return redirect("eval_team_list")

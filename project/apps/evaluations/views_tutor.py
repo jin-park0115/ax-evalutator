@@ -116,6 +116,26 @@ def team_build(request):
 
 
 # =========================================================
+# 팀 발표(평가) 시작 — Team.eval_opened_at 세팅
+# 확정된 규칙: 한 번 열리면 다른 팀이 열려도 안 닫힘(누적).
+# URL: /tutor/teams/<id>/open/
+# =========================================================
+@staff_member_required
+def open_team_presentation(request, team_id):
+    from django.utils import timezone
+    from apps.teams.models import Team
+
+    if request.method == "POST":
+        team = get_object_or_404(Team, id=team_id)
+        if not team.eval_opened_at:
+            team.eval_opened_at = timezone.now()
+            team.eval_status = Team.EvalStatus.OPEN
+            team.save()
+
+    return redirect(f"/tutor/team-build/?round_id={request.POST.get('round_id', '')}")
+
+
+# =========================================================
 # 팀 평가 (다른 팀원 목업 유지)
 # URL: /tutor/team-evaluation/
 # =========================================================
