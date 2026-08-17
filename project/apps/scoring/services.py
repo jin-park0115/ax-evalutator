@@ -4,7 +4,7 @@ from apps.evaluations.models import (
     TutorEvaluation,
     ScoreResult,
 )
-from apps.teams.models import TeamMember
+from apps.teams.models import TeamMember, TeamUserScoreSeed
 
 
 def calculate_seed_scores(
@@ -13,14 +13,8 @@ def calculate_seed_scores(
     """
     여러 회차의 학생별 점수를 받아
     학생별 평균 점수를 계산한다.
-
-    예:
-    1회차: {1: 80, 2: 90}
-    2회차: {1: 90, 2: 80}
-
-    결과:
-    {1: 85, 2: 85}
     """
+
     totals: dict[int, float] = {}
     counts: dict[int, int] = {}
 
@@ -67,9 +61,9 @@ def calculate_rankings(
     names: dict[int, str],
 ) -> list[tuple[int, float, int]]:
     """
-    점수가 높은 순서로 석차를 계산한다.
+    점수가 높은 순서로 학생 순위를 계산한다.
 
-    동점자는 같은 석차를 사용하고,
+    동점자는 같은 순위를 사용하고,
     이름을 보조 정렬 기준으로 사용한다.
     """
 
@@ -93,6 +87,52 @@ def calculate_rankings(
 
         rankings.append(
             (student_id, score, rank)
+        )
+
+    return rankings
+
+
+def calculate_team_rankings(
+    team_scores: dict[int, float],
+    team_names: dict[int, str],
+) -> list[tuple[int, float, int]]:
+    """
+    팀별 점수를 받아 팀 순위를 계산한다.
+
+    점수가 높은 팀이 높은 순위를 가진다.
+    같은 점수인 팀은 같은 순위를 사용한다.
+    동점일 경우 팀 이름을 보조 정렬 기준으로 사용한다.
+
+    반환값:
+        [
+            (team_id, team_score, rank),
+            ...
+        ]
+    """
+
+    sorted_team_ids = sorted(
+        team_scores.keys(),
+        key=lambda team_id: (
+            -team_scores[team_id],
+            team_names[team_id],
+        ),
+    )
+
+    rankings = []
+
+    for index, team_id in enumerate(sorted_team_ids):
+        score = team_scores[team_id]
+
+        if (
+            index > 0
+            and score == team_scores[sorted_team_ids[index - 1]]
+        ):
+            rank = rankings[index - 1][2]
+        else:
+            rank = index + 1
+
+        rankings.append(
+            (team_id, score, rank)
         )
 
     return rankings
@@ -265,9 +305,6 @@ def calculate_student_result(
     팀 평가 또는 개인 평가가 아직 없는 경우
     해당 점수는 None으로 처리하고,
     최종 점수도 None으로 반환한다.
-
-    이렇게 하면 평가가 덜 끝난 학생 때문에
-    전체 calculate_round()가 중단되지 않는다.
     """
 
     student_team_score = get_team_score_from_db(
@@ -290,7 +327,6 @@ def calculate_student_result(
         student_id,
     )
 
-    # 팀 평가 또는 개인 평가가 아직 없는 경우
     if student_team_score is None or student_individual_score is None:
         team_score = (
             calculate_team_score(
@@ -320,8 +356,6 @@ def calculate_student_result(
             "final_score": None,
         }
 
-    # 팀 평가와 개인 평가가 모두 존재하는 경우에만
-    # 팀 점수, 개인 점수, 최종 점수를 계산한다.
     team_score = calculate_team_score(
         student_team_score,
         tutor_team_score,
@@ -354,14 +388,6 @@ def calculate_round(round) -> list[dict]:
     """
     특정 평가 회차의 모든 학생 점수를 계산하고
     ScoreResult 테이블에 저장한다.
-
-    처리 순서:
-    1. 해당 회차의 팀에 속한 학생을 조회한다.
-    2. 학생별 팀/개인/최종 점수를 계산한다.
-    3. 최종 점수를 기준으로 전체 석차를 계산한다.
-    4. ScoreResult에 결과를 저장하거나 갱신한다.
-
-    아직 평가가 완료되지 않은 학생은 결과를 저장하지 않는다.
     """
 
     team_members = list(
@@ -385,8 +411,6 @@ def calculate_round(round) -> list[dict]:
             team.id,
         )
 
-        # 평가가 덜 끝난 학생은 건너뛴다.
-        # 다른 학생들의 계산은 계속 진행된다.
         if (
             result["team_score"] is None
             or result["individual_score"] is None
@@ -453,3 +477,89 @@ def calculate_round(round) -> list[dict]:
         )
 
     return saved_results
+
+
+def save_cumulative_seeds(round_id: int) -> dict[int, float]:
+    """
+    종료된 평가 회차의 최종 점수를 기준으로
+    학생별 누적 시드를 계산하고 저장한다.
+
+    누적 시드 = 종료된 모든 회차의 최종 점수 평균
+
+    반환값:
+        {
+            user_id: cumulative_seed
+        }
+    """
+
+    results = (
+        ScoreResult.objects
+        .filter(
+            round__status="finished",
+            round_id__lte=round_id,
+        )
+        .values(
+            "user_id",
+            "round_id",
+            "team_id",
+            "final_score",
+        )
+        .order_by("user_id", "round_id")
+    )
+
+    student_scores: dict[int, list[float]] = {}
+    latest_team: dict[int, int] = {}
+
+    for result in results:
+        user_id = result["user_id"]
+        final_score = result["final_score"]
+
+        if final_score is None:
+            continue
+
+        student_scores.setdefault(user_id, []).append(final_score)
+        latest_team[user_id] = result["team_id"]
+
+    saved_seeds: dict[int, float] = {}
+
+    for user_id, scores in student_scores.items():
+        cumulative_seed = sum(scores) / len(scores)
+
+        TeamUserScoreSeed.objects.update_or_create(
+            user_id=user_id,
+            round_id=round_id,
+            defaults={
+                "team_id": latest_team[user_id],
+                "cumulative_seed": cumulative_seed,
+            },
+        )
+
+        saved_seeds[user_id] = cumulative_seed
+
+    return saved_seeds
+
+
+def get_cumulative_seed(
+    user_id: int,
+    round_id: int,
+) -> float | None:
+    """
+    특정 학생의 특정 평가 회차 누적 시드를 조회한다.
+
+    저장된 시드가 없으면 None을 반환한다.
+    """
+
+    seed = (
+        TeamUserScoreSeed.objects
+        .filter(
+            user_id=user_id,
+            round_id=round_id,
+        )
+        .values_list(
+            "cumulative_seed",
+            flat=True,
+        )
+        .first()
+    )
+
+    return seed
