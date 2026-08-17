@@ -74,6 +74,7 @@ def toggle_team_first_rank(request, round_id):
 @staff_member_required
 def team_build(request):
     from apps.teams.models import Team, TeamMember
+    from apps.teams.views import is_round_editable
 
     round_id = request.GET.get("round_id")
     if round_id:
@@ -111,6 +112,7 @@ def team_build(request):
             "rounds": EvaluationRound.objects.order_by("-id"),
             "teams": teams,
             "unassigned_students": unassigned_students,
+            "round_editable": is_round_editable(round_obj) if round_obj else False,
         },
     )
 
