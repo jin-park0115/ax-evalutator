@@ -8,14 +8,15 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import get_user_model
 
 from apps.evaluations.models import EvaluationRound
-from .models import Team, TeamMember
+from .models import Team, TeamMember, TeamUserScoreSeed
+from .services import (
+    get_students_by_percentiles, 
+    assign_seed_based_teams, 
+    get_user_display_name
+)
 
 User = get_user_model()
 
-
-# ---------------------------------------------------------------------------
-# Helper Functions
-# ---------------------------------------------------------------------------
 
 def calculate_optimal_team_count(total_students):
     """팀 수 미입력 시 4~5명 위주로 인원이 균등하게 배정되도록 최적의 팀 수 계산"""
@@ -41,11 +42,6 @@ def is_round_editable(target_round):
     return getattr(target_round, "status", EvaluationRound.Status.DRAFT) in editable_statuses
 
 
-# ---------------------------------------------------------------------------
-# API Views
-# ---------------------------------------------------------------------------
-
-# 1. 회차별 전체 팀 및 팀원 목록 조회
 @require_http_methods(["GET"])
 def round_team_members(request):
     round_id = request.GET.get("round_id")
@@ -76,7 +72,7 @@ def round_team_members(request):
         members_data = [
             {
                 "student_id": tm.student.id,
-                "name": getattr(tm.student, "name", getattr(tm.student, "username", str(tm.student))),
+                "name": get_user_display_name(tm.student),
                 "email": getattr(tm.student, "email", ""),
             }
             for tm in team.members.all()
@@ -85,8 +81,8 @@ def round_team_members(request):
             {
                 "team_id": team.id,
                 "team_name": team.name,
-                "presentation_order": team.presentation_order,
-                "eval_status": team.eval_status,
+                "presentation_order": getattr(team, "presentation_order", None),
+                "eval_status": getattr(team, "eval_status", None),
                 "members": members_data,
             }
         )
@@ -101,7 +97,6 @@ def round_team_members(request):
     )
 
 
-# 2. 팀 수동 생성
 @staff_member_required
 @require_http_methods(["POST"])
 def create_team(request):
@@ -135,7 +130,6 @@ def create_team(request):
     )
 
 
-# 3. 수강생 팀 수동 배정 및 이동
 @staff_member_required
 @require_http_methods(["POST"])
 def assign_or_move_student(request):
@@ -150,7 +144,6 @@ def assign_or_move_student(request):
     if not student_id or not target_team_id:
         return JsonResponse({"error": "student_id와 team_id는 필수입니다."}, status=400)
 
-    # Student 모델 대신 User 모델에서 STUDENT 역할인 수강생 조회
     student = get_object_or_404(User, id=student_id, role=User.Role.STUDENT)
     target_team = get_object_or_404(Team, id=target_team_id)
     target_round = target_team.round
@@ -162,25 +155,37 @@ def assign_or_move_student(request):
         )
 
     with transaction.atomic():
-        existing_membership = TeamMember.objects.filter(
-            team__round=target_round, student=student
-        ).first()
-
-        if existing_membership:
-            if existing_membership.team_id == target_team.id:
-                return JsonResponse({"message": "이미 해당 팀에 소속되어 있습니다."}, status=200)
-            existing_membership.delete()
-
+        TeamMember.objects.filter(team__round=target_round, student=student).delete()
         TeamMember.objects.create(team=target_team, student=student)
 
-    student_display_name = getattr(student, "name", student.username)
+    student_display_name = get_user_display_name(student)
     return JsonResponse(
         {"message": f"{student_display_name} 수강생이 '{target_team.name}' 팀으로 배정되었습니다."},
         status=200,
     )
 
 
-# 4. 무작위 팀 자동 편성
+@staff_member_required
+@require_http_methods(["POST"])
+def get_percentile_preview(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        data = request.POST
+
+    round_id = data.get("round_id")
+    thresholds = data.get("thresholds", [30.0, 60.0])
+    excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
+
+    groups = get_students_by_percentiles(
+        target_round_id=round_id,
+        thresholds=thresholds, 
+        excluded_student_ids=excluded_student_ids
+    )
+
+    return JsonResponse({"thresholds": thresholds, "groups": groups}, status=200)
+
+
 @staff_member_required
 @require_http_methods(["POST"])
 def auto_assign_teams(request):
@@ -191,6 +196,9 @@ def auto_assign_teams(request):
 
     round_id = data.get("round_id")
     team_count = data.get("team_count")
+    thresholds = data.get("thresholds", [30.0, 60.0])
+    fixed_student_ids = [int(sid) for sid in data.get("fixed_student_ids", [])]
+    excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
 
     if not round_id:
         return JsonResponse({"error": "round_id는 필수입니다."}, status=400)
@@ -203,62 +211,86 @@ def auto_assign_teams(request):
             status=400,
         )
 
-    # Student 모델 대신 User 모델에서 STUDENT 역할을 가진 사용자 전체 추출
-    all_students = list(User.objects.filter(role=User.Role.STUDENT))
-    total_students_count = len(all_students)
+    # 이전 회차 시드 기록 존재 여부 확인 (현재 회차 미만)
+    has_score_history = TeamUserScoreSeed.objects.filter(round_id__lt=target_round.id).exists()
+
+    active_students = (
+        User.objects.filter(role=User.Role.STUDENT, is_active=True)
+        .exclude(id__in=excluded_student_ids)
+        .distinct()
+    )
+    total_students_count = active_students.count()
 
     if total_students_count == 0:
-        return JsonResponse({"error": "등록된 수강생이 없습니다."}, status=400)
+        return JsonResponse({"error": "배정 가능한 대상 수강생이 없습니다."}, status=400)
 
     num_teams = int(team_count) if team_count else calculate_optimal_team_count(total_students_count)
+    if num_teams < 1:
+        num_teams = 1
 
     with transaction.atomic():
-        existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
+        if has_score_history:
+            assign_seed_based_teams(
+                target_round=target_round,
+                num_teams=num_teams,
+                thresholds=thresholds,
+                fixed_student_ids=fixed_student_ids,
+                excluded_student_ids=excluded_student_ids,
+            )
+            msg = f"누적 시드 점수 기반(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
+        else:
+            existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
-        if len(existing_teams) < num_teams:
-            for i in range(len(existing_teams) + 1, num_teams + 1):
-                new_team = Team.objects.create(round=target_round, name=f"{i}팀")
-                existing_teams.append(new_team)
-        elif len(existing_teams) > num_teams:
-            for team_to_delete in existing_teams[num_teams:]:
-                team_to_delete.delete()
-            existing_teams = existing_teams[:num_teams]
+            if len(existing_teams) < num_teams:
+                for i in range(len(existing_teams) + 1, num_teams + 1):
+                    new_team = Team.objects.create(round=target_round, name=f"{i}팀")
+                    existing_teams.append(new_team)
+            elif len(existing_teams) > num_teams:
+                for team_to_delete in existing_teams[num_teams:]:
+                    team_to_delete.delete()
+                existing_teams = existing_teams[:num_teams]
 
-        assigned_memberships = TeamMember.objects.filter(
-            team__round=target_round
-        ).select_related("student")
+            excluded_set = set(excluded_student_ids)
+            fixed_set = set(fixed_student_ids) - excluded_set
 
-        assigned_student_ids = set()
-        team_member_counts = {team.id: 0 for team in existing_teams}
+            TeamMember.objects.filter(team__round=target_round, student_id__in=excluded_set).delete()
+            TeamMember.objects.filter(team__round=target_round).exclude(student_id__in=fixed_set).delete()
 
-        for membership in assigned_memberships:
-            if membership.team_id in team_member_counts:
-                assigned_student_ids.add(membership.student.id)
-                team_member_counts[membership.team_id] += 1
+            assigned_student_ids = set(
+                TeamMember.objects.filter(team__round=target_round).values_list("student_id", flat=True)
+            )
+            unassigned_students = [
+                s for s in active_students 
+                if s.id not in assigned_student_ids and s.id not in excluded_set
+            ]
+            random.shuffle(unassigned_students)
 
-        unassigned_students = [s for s in all_students if s.id not in assigned_student_ids]
-        random.shuffle(unassigned_students)
+            team_member_counts = {
+                team.id: TeamMember.objects.filter(team=team).count() for team in existing_teams
+            }
 
-        for student in unassigned_students:
-            min_count = min(team_member_counts.values())
-            candidate_teams = [t_id for t_id, count in team_member_counts.items() if count == min_count]
-            selected_team_id = random.choice(candidate_teams)
+            for student in unassigned_students:
+                min_count = min(team_member_counts.values())
+                candidate_teams = [t_id for t_id, count in team_member_counts.items() if count == min_count]
+                selected_team_id = random.choice(candidate_teams)
 
-            selected_team = next(t for t in existing_teams if t.id == selected_team_id)
-            TeamMember.objects.create(team=selected_team, student=student)
-            team_member_counts[selected_team_id] += 1
+                selected_team = next(t for t in existing_teams if t.id == selected_team_id)
+                TeamMember.objects.create(team=selected_team, student=student)
+                team_member_counts[selected_team_id] += 1
+
+            msg = f"최초 회차 - 무작위(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
 
     return JsonResponse(
         {
-            "message": f"총 {num_teams}개 팀으로 자동 편성이 완료되었습니다.",
+            "message": msg,
             "round_id": int(round_id),
             "team_count": num_teams,
+            "excluded_count": len(excluded_student_ids),
+            "is_seed_based": has_score_history,
         },
         status=200,
     )
 
-
-# 5. 팀 편성 확정
 @staff_member_required
 @require_http_methods(["POST"])
 def confirm_team_assignment(request):
@@ -285,12 +317,14 @@ def confirm_team_assignment(request):
         return JsonResponse({"error": "생성된 팀이 없습니다. 최소 1개 이상의 팀을 편성해주세요."}, status=400)
 
     with transaction.atomic():
-        target_round.status = "CONFIRMED"
+        # EvaluationRound 모델에 정의된 올바른 Status 값(READY)을 지정합니다.
+        # 즉시 평가를 진행하는 시스템이면 EvaluationRound.Status.IN_PROGRESS 로 변경하세요.
+        target_round.status = getattr(EvaluationRound.Status, "READY", "READY")
         target_round.save()
 
     return JsonResponse(
         {
-            "message": f"{target_round.id}회차 팀 편성이 확정되었습니다. 이제 팀 구성을 변경할 수 없습니다.",
+            "message": f"{target_round.id}회차 팀 편성이 확정되었습니다.",
             "round_id": target_round.id,
             "status": target_round.status,
         },

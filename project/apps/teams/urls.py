@@ -6,5 +6,6 @@ urlpatterns = [
     path("create/", views.create_team, name="create_team"),
     path("assign/", views.assign_or_move_student, name="assign_or_move_student"),
     path("auto-assign/", views.auto_assign_teams, name="auto_assign_teams"),
-    path("confirm/", views.confirm_team_assignment, name="confirm_team_assignment"),  # 추가된 확정 API
+    path("percentile-preview/", views.get_percentile_preview, name="get_percentile_preview"),
+    path("confirm/", views.confirm_team_assignment, name="confirm_team_assignment"),
 ]
