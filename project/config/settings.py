@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +14,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    
+    # --- django-allauth 필수 앱 추가 ---
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+
+    # 프로젝트 앱
     "apps.accounts",
     "apps.students",
     "apps.evaluations",
@@ -22,6 +30,9 @@ INSTALLED_APPS = [
     "apps.scoring",
     "apps.results",
 ]
+
+# django-allauth용 Site ID 설정
+SITE_ID = 1
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -31,6 +42,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    
+    # --- allauth 필수 미들웨어 추가 ---
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -79,7 +93,24 @@ LOGIN_REDIRECT_URL = "/student/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 AUTH_USER_MODEL = 'accounts.User'
+
 AUTHENTICATION_BACKENDS = [
     'apps.accounts.backends.RoleBasedAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
+    
+    # --- allauth 인증 백엔드 추가 ---
+    'allauth.account.auth_backends.AuthenticationBackend',
 ]
+
+# --- 구글 소셜 로그인 상세 설정 ---
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}

@@ -82,10 +82,18 @@ urlpatterns = [
         name="tutor_evaluation_status",
     ),
 
-    # =========================
-    # 로그인 / 로그아웃
-    # =========================
 
+    # =========================
+    # 로그인 / 로그아웃 & 소셜 로그인
+    # =========================
+    
+    # 1. allauth URL을 먼저 배치
+    path('accounts/', include('allauth.urls')),
+
+    # 2. 커스텀 앱 URL 배치
+    path('accounts/', include('apps.accounts.urls')),
+
+    # 기존 auth_views를 사용한 직접 지정 로그인/로그아웃 경로
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(
@@ -93,7 +101,6 @@ urlpatterns = [
         ),
         name="login",
     ),
-
     path(
         "accounts/logout/",
         auth_views.LogoutView.as_view(),
@@ -101,8 +108,5 @@ urlpatterns = [
     ),
 
     # 관리자
-    path(
-        "admin/",
-        admin.site.urls,
-    ),
+    path("admin/", admin.site.urls),
 ]
