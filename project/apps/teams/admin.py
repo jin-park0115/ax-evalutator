@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from apps.teams.models import Team, TeamMember
+from apps.teams.models import Team, TeamMember, TeamUserScoreSeed
 
 User = get_user_model()
 
@@ -19,8 +19,8 @@ class TeamMemberInline(admin.TabularInline):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "round_id", "presentation_order", "eval_status")
-    list_filter = ("eval_status", "round_id")
+    list_display = ("id", "name", "round", "presentation_order", "eval_status", "created_at")
+    list_filter = ("eval_status", "round")
     search_fields = ("name",)
     inlines = [TeamMemberInline]
 
@@ -28,10 +28,19 @@ class TeamAdmin(admin.ModelAdmin):
 @admin.register(TeamMember)
 class TeamMemberAdmin(admin.ModelAdmin):
     list_display = ("id", "team", "student")
-    list_filter = ("team",)
+    list_filter = ("team__round", "team")
+    search_fields = ("student__username", "student__email", "team__name")
 
     # 단독 TeamMember 등록 페이지에서도 STUDENT만 노출
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "student":
             kwargs["queryset"] = User.objects.filter(role=User.Role.STUDENT)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+@admin.register(TeamUserScoreSeed)
+class TeamUserScoreSeedAdmin(admin.ModelAdmin):
+    """누적 시드 점수 어드민 설정"""
+    list_display = ("id", "round", "team", "user", "cumulative_seed")
+    list_filter = ("round", "team")
+    search_fields = ("user__username", "user__email", "team__name")
