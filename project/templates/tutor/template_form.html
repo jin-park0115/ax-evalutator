@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-4">
+    <h1 class="h3 mb-1">평가 템플릿 생성</h1>
+    <a href="{% url 'tutor_templates' %}" class="text-muted small">← 템플릿 목록으로</a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+
+        <form method="post" id="templateForm">
+            {% csrf_token %}
+
+            <div class="row g-3 mb-4">
+
+                <div class="col-md-6">
+                    <label class="form-label">회차</label>
+                    <select class="form-select" name="round_id" required>
+                        <option value="" disabled selected>선택하세요</option>
+                        {% for round in rounds %}
+                        <option value="{{ round.id }}">{{ round.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">유형</label>
+                    <select class="form-select" name="type" required>
+                        <option value="" disabled selected>선택하세요</option>
+                        {% for value, label in types %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+            </div>
+
+            <label class="form-label">문항</label>
+            <div id="itemRows">
+                <div class="row g-2 mb-2 item-row">
+                    <div class="col-3">
+                        <input type="text" class="form-control" name="item_key" placeholder="key (예: quality)" required>
+                    </div>
+                    <div class="col-7">
+                        <input type="text" class="form-control" name="item_text" placeholder="문항 내용 (예: 결과물 완성도)" required>
+                    </div>
+                    <div class="col-2">
+                        <button type="button" class="btn btn-outline-danger w-100 removeRowBtn">삭제</button>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-4" id="addRowBtn">
+                + 문항 추가
+            </button>
+
+            <div>
+                <button type="submit" class="btn btn-primary">템플릿 저장</button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+<script>
+    const itemRows = document.getElementById("itemRows");
+    const addRowBtn = document.getElementById("addRowBtn");
+
+    function rowTemplate() {
+        const div = document.createElement("div");
+        div.className = "row g-2 mb-2 item-row";
+        div.innerHTML = `
+            <div class="col-3">
+                <input type="text" class="form-control" name="item_key" placeholder="key" required>
+            </div>
+            <div class="col-7">
+                <input type="text" class="form-control" name="item_text" placeholder="문항 내용" required>
+            </div>
+            <div class="col-2">
+                <button type="button" class="btn btn-outline-danger w-100 removeRowBtn">삭제</button>
+            </div>
+        `;
+        return div;
+    }
+
+    addRowBtn.addEventListener("click", function () {
+        itemRows.appendChild(rowTemplate());
+    });
+
+    itemRows.addEventListener("click", function (event) {
+        if (event.target.classList.contains("removeRowBtn")) {
+            const rows = itemRows.querySelectorAll(".item-row");
+            if (rows.length > 1) {
+                event.target.closest(".item-row").remove();
+            }
+        }
+    });
+</script>
+
+{% endblock %}

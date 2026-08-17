@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
-from apps.evaluations.models import EvaluationRound
+from apps.evaluations.models import EvaluationRound, EvaluationTemplate
 
 
 # =========================================================
@@ -218,39 +218,50 @@ def individual_evaluation(request):
 
 
 # =========================================================
-# 템플릿 관리 (다른 팀원 목업 유지)
+# 템플릿 관리 (실 DB 연동 — EvaluationTemplate.criteria)
 # URL: /tutor/templates/
 # =========================================================
+@staff_member_required
 def template_list(request):
-    templates = [
-        {
-            "id": 1,
-            "name": "기본 팀 평가 템플릿",
-            "type": "팀 평가",
-            "question_count": 5,
-            "status": "사용중",
-        },
-        {
-            "id": 2,
-            "name": "기본 개인 평가 템플릿",
-            "type": "개인 평가",
-            "question_count": 6,
-            "status": "사용중",
-        },
-        {
-            "id": 3,
-            "name": "최종 프로젝트 평가",
-            "type": "팀 평가",
-            "question_count": 8,
-            "status": "보관",
-        },
-    ]
-
+    templates = EvaluationTemplate.objects.select_related("round").order_by("-id")
     return render(
         request,
         "tutor/templates.html",
         {
             "templates": templates,
+        },
+    )
+
+
+@staff_member_required
+def template_create(request):
+    if request.method == "POST":
+        round_id = request.POST.get("round_id")
+        template_type = request.POST.get("type")
+        keys = request.POST.getlist("item_key")
+        texts = request.POST.getlist("item_text")
+
+        criteria = [
+            {"key": key, "text": text}
+            for key, text in zip(keys, texts)
+            if key and text
+        ]
+
+        if round_id and template_type and criteria:
+            EvaluationTemplate.objects.update_or_create(
+                round_id=round_id,
+                type=template_type,
+                defaults={"criteria": criteria},
+            )
+            return redirect("tutor_templates")
+
+    rounds = EvaluationRound.objects.order_by("-id")
+    return render(
+        request,
+        "tutor/template_form.html",
+        {
+            "rounds": rounds,
+            "types": EvaluationTemplate.TemplateType.choices,
         },
     )
 

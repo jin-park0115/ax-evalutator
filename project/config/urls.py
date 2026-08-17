@@ -10,8 +10,14 @@ from apps.evaluations.views_tutor import (
     team_evaluation,
     individual_evaluation,
     template_list,
+    template_create,
     tutor_settings,
     evaluation_status,
+)
+from apps.evaluations.views_eval import (
+    team_evaluation_list,
+    team_evaluation_form,
+    peer_evaluation_form,
 )
 
 
@@ -67,6 +73,11 @@ urlpatterns = [
         template_list,
         name="tutor_templates",
     ),
+    path(
+        "tutor/templates/new/",
+        template_create,
+        name="tutor_template_create",
+    ),
 
     # 공개 설정
     path(
@@ -80,6 +91,26 @@ urlpatterns = [
         "tutor/evaluation-status/",
         evaluation_status,
         name="tutor_evaluation_status",
+    ),
+
+    # =========================
+    # 평가 (FE2 계약: eval_team_list / eval_team_form / eval_peer_form)
+    # =========================
+
+    path(
+        "eval/teams/",
+        team_evaluation_list,
+        name="eval_team_list",
+    ),
+    path(
+        "eval/teams/<int:team_id>/",
+        team_evaluation_form,
+        name="eval_team_form",
+    ),
+    path(
+        "eval/peer/",
+        peer_evaluation_form,
+        name="eval_peer_form",
     ),
 
 
