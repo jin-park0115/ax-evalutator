@@ -116,3 +116,18 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+# --- 구글 소셜 로그인 및 어댑터 설정 ---
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.CustomSocialAccountAdapter"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
+    }
+}
