@@ -289,7 +289,6 @@ def auto_assign_teams(request):
         status=200,
     )
 
-
 @staff_member_required
 @require_http_methods(["POST"])
 def confirm_team_assignment(request):
@@ -316,12 +315,14 @@ def confirm_team_assignment(request):
         return JsonResponse({"error": "생성된 팀이 없습니다. 최소 1개 이상의 팀을 편성해주세요."}, status=400)
 
     with transaction.atomic():
-        target_round.status = "CONFIRMED"
+        # EvaluationRound 모델에 정의된 올바른 Status 값(READY)을 지정합니다.
+        # 즉시 평가를 진행하는 시스템이면 EvaluationRound.Status.IN_PROGRESS 로 변경하세요.
+        target_round.status = getattr(EvaluationRound.Status, "READY", "READY")
         target_round.save()
 
     return JsonResponse(
         {
-            "message": f"{target_round.id}회차 팀 편성이 확정되었습니다. 이제 팀 구성을 변경할 수 없습니다.",
+            "message": f"{target_round.id}회차 팀 편성이 확정되었습니다.",
             "round_id": target_round.id,
             "status": target_round.status,
         },
