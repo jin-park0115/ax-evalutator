@@ -70,3 +70,139 @@ class Evaluation(models.Model):
                 name="uq_evaluation_once",
             )
         ]
+# apps/evaluations/models.py 하단에 추가
+
+# 1. 평가 템플릿
+class EvaluationTemplate(models.Model):
+    class TemplateType(models.TextChoices):
+        TEAM = "TEAM", "팀 평가"
+        INDIVIDUAL = "INDIVIDUAL", "개인 평가"
+        TUTOR = "TUTOR", "튜터 평가"
+
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="templates"
+    )
+    type = models.CharField(
+        max_length=20, choices=TemplateType.choices, verbose_name="템플릿 유형"
+    )
+    criteria = models.JSONField(
+        default=dict, verbose_name="문항 목록 (JSON)"
+    )
+
+    def __str__(self):
+        return f"[{self.round.name}] {self.get_type_display()} 템플릿"
+
+
+# 2. 팀 평가
+class TeamEvaluation(models.Model):
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="team_evaluations"
+    )
+    evaluator_team = models.ForeignKey(
+        "teams.Team", on_delete=models.CASCADE, related_name="given_team_evaluations"
+    )
+    target_team = models.ForeignKey(
+        "teams.Team", on_delete=models.CASCADE, related_name="received_team_evaluations"
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="submitted_team_evaluations",
+    )
+    score = models.FloatField(verbose_name="계산 점수")
+    responses = models.JSONField(
+        default=dict, verbose_name="문항별 점수 및 서술 의견"
+    )
+    is_final = models.BooleanField(default=False, verbose_name="최종 제출 여부")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+# 3. 개인 평가
+class IndividualEvaluation(models.Model):
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="individual_evaluations"
+    )
+    team = models.ForeignKey(
+        "teams.Team", on_delete=models.CASCADE, related_name="individual_evaluations"
+    )
+    evaluator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="given_individual_evaluations",
+    )
+    target = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="received_individual_evaluations",
+    )
+    score = models.FloatField(verbose_name="계산 점수")
+    responses = models.JSONField(
+        default=dict, verbose_name="문항별 점수 및 서술 의견"
+    )
+    is_final = models.BooleanField(default=False, verbose_name="최종 제출 여부")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+# 4. 튜터 평가
+class TutorEvaluation(models.Model):
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="tutor_evaluations"
+    )
+    evaluator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="given_tutor_evaluations",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="tutor_evaluations_as_target",
+        verbose_name="개인 평가 대상자",
+    )
+    team = models.ForeignKey(
+        "teams.Team",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="tutor_evaluations_as_target",
+        verbose_name="팀 평가 대상",
+    )
+    score = models.FloatField(verbose_name="계산 점수")
+    responses = models.JSONField(
+        default=dict, verbose_name="문항별 점수 및 서술 의견"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+# 5. 최종 성적 결과
+class ScoreResult(models.Model):
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="score_results"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="score_results"
+    )
+    team = models.ForeignKey(
+        "teams.Team", on_delete=models.CASCADE, related_name="score_results"
+    )
+    team_score = models.FloatField(verbose_name="최종 팀 평가점수")
+    individual_score = models.FloatField(verbose_name="최종 개인 평가점수")
+    final_score = models.FloatField(verbose_name="최종 합산점수")
+    rank = models.IntegerField(null=True, blank=True, verbose_name="석차")
+
+
+# 6. 과제
+class Assignment(models.Model):
+    round = models.ForeignKey(
+        EvaluationRound, on_delete=models.CASCADE, related_name="assignments"
+    )
+    title = models.CharField(max_length=200, verbose_name="과제 제목")
+    description = models.TextField(blank=True, verbose_name="과제 설명")
+    eval_start_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="평가 시작 일시"
+    )
+    eval_end_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="평가 종료 일시"
+    )
