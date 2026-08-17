@@ -27,12 +27,15 @@
           <button type="submit" class="btn btn-primary w-100">로그인</button>
         </form>
 
+        {% get_providers as socialaccount_providers %}
+        {% if socialaccount_providers %}
         <hr class="my-4">
 
-        <!-- 구글 로그인 버튼 -->
+        <!-- 구글 로그인 버튼: SocialApp이 등록된 경우에만 표시 (없으면 조용히 숨김) -->
         <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger w-100">
           Google 계정으로 로그인
         </a>
+        {% endif %}
       </div>
     </div>
   </div>

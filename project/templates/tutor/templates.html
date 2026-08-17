@@ -8,16 +8,13 @@
         <h1 class="h3 mb-1">평가 템플릿 관리</h1>
 
         <p class="text-muted mb-0">
-            평가에 사용할 템플릿을 관리할 수 있습니다.
+            회차별 팀 평가 / 개인 평가 문항을 관리할 수 있습니다.
         </p>
     </div>
 
-    <button
-        type="button"
-        class="btn btn-primary"
-    >
+    <a href="{% url 'tutor_template_create' %}" class="btn btn-primary">
         + 템플릿 생성
-    </button>
+    </a>
 
 </div>
 
@@ -36,11 +33,9 @@
                 <thead class="table-light">
 
                     <tr>
-                        <th>템플릿명</th>
+                        <th>회차</th>
                         <th>유형</th>
                         <th>문항 수</th>
-                        <th>상태</th>
-                        <th>관리</th>
                     </tr>
 
                 </thead>
@@ -52,44 +47,21 @@
                     <tr>
 
                         <td>
-                            {{ template.name }}
+                            {{ template.round.name }}
                         </td>
 
                         <td>
-                            {{ template.type }}
-                        </td>
-
-                        <td>
-                            {{ template.question_count }}개
-                        </td>
-
-                        <td>
-
-                            {% if template.status == "사용중" %}
-
-                                <span class="badge text-bg-success">
-                                    {{ template.status }}
-                                </span>
-
+                            {% if template.type == "TEAM" %}
+                                <span class="badge text-bg-primary">팀 평가</span>
+                            {% elif template.type == "INDIVIDUAL" %}
+                                <span class="badge text-bg-info">개인 평가</span>
                             {% else %}
-
-                                <span class="badge text-bg-secondary">
-                                    {{ template.status }}
-                                </span>
-
+                                <span class="badge text-bg-secondary">{{ template.get_type_display }}</span>
                             {% endif %}
-
                         </td>
 
                         <td>
-
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-outline-primary"
-                            >
-                                보기
-                            </button>
-
+                            {{ template.criteria|length }}개
                         </td>
 
                     </tr>
@@ -97,8 +69,8 @@
                     {% empty %}
 
                     <tr>
-                        <td colspan="5" class="text-center py-4">
-                            템플릿이 없습니다.
+                        <td colspan="3" class="text-center py-4">
+                            템플릿이 없습니다. "+ 템플릿 생성"으로 회차별 평가 문항을 등록하세요.
                         </td>
                     </tr>
 

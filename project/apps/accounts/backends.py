@@ -15,8 +15,10 @@ class RoleBasedAuthBackend(ModelBackend):
         except User.DoesNotExist:
             return None
 
-        # 비밀번호 확인 및 승인 상태 체크 (PENDING 상태는 로그인 불가)
+        # 비밀번호 확인 및 승인 상태 체크
+        # PENDING(승인대기), APPROVED(역할부여 대기) 상태는 로그인 불가
+        # 역할(STUDENT/ADMIN)이 부여되어야 비로소 로그인 가능
         if user.check_password(password) and self.user_can_authenticate(user):
-            if user.role in [User.Role.APPROVED, User.Role.ADMIN, User.Role.STUDENT]:
+            if user.role in [User.Role.ADMIN, User.Role.STUDENT]:
                 return user
         return None

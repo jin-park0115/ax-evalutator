@@ -10,8 +10,14 @@ from apps.evaluations.views_tutor import (
     team_evaluation,
     individual_evaluation,
     template_list,
+    template_create,
     tutor_settings,
     evaluation_status,
+)
+from apps.evaluations.views_eval import (
+    team_evaluation_list,
+    team_evaluation_form,
+    peer_evaluation_form,
 )
 
 
@@ -27,6 +33,13 @@ urlpatterns = [
     path(
         "student/",
         include("apps.students.urls"),
+    ),
+
+    # 팀 편성 API (BE1 기완성 — round_team_members/create_team/
+    # assign_or_move_student/auto_assign_teams/confirm_team_assignment)
+    path(
+        "teams/",
+        include("apps.teams.urls"),
     ),
 
     # =========================
@@ -67,6 +80,11 @@ urlpatterns = [
         template_list,
         name="tutor_templates",
     ),
+    path(
+        "tutor/templates/new/",
+        template_create,
+        name="tutor_template_create",
+    ),
 
     # 공개 설정
     path(
@@ -82,11 +100,31 @@ urlpatterns = [
         name="tutor_evaluation_status",
     ),
 
+    # =========================
+    # 평가 (FE2 계약: eval_team_list / eval_team_form / eval_peer_form)
+    # =========================
+
+    path(
+        "eval/teams/",
+        team_evaluation_list,
+        name="eval_team_list",
+    ),
+    path(
+        "eval/teams/<int:team_id>/",
+        team_evaluation_form,
+        name="eval_team_form",
+    ),
+    path(
+        "eval/peer/",
+        peer_evaluation_form,
+        name="eval_peer_form",
+    ),
+
 
 # =========================
     # 로그인 / 로그아웃 & 소셜 로그인
     # =========================
-    
+
     # 1. 커스텀 로그인 경로를 allauth보다 위에 배치합니다.
     path(
         "accounts/login/",
@@ -101,7 +139,7 @@ urlpatterns = [
         name="logout",
     ),
 
-    # 2. 커스텀 앱 및 allauth URL 배치
+    # 2. 커스텀 앱(signup/, pending-users/ 등) 및 allauth URL 배치
     path('accounts/', include('apps.accounts.urls')),
     path('accounts/', include('allauth.urls')),
 
