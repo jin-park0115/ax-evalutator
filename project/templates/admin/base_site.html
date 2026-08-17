@@ -26,14 +26,16 @@
     --breadcrumbs-link-fg: #ffffff !important;
     --breadcrumbs-bg: #101010 !important;
 
-    --link-fg: #4E75F8 !important;
-    --link-hover-color: #3b62e3 !important;
-    --link-selected-fg: #3b62e3 !important;
+    /* 흰 배경 위 텍스트 링크는 #4E75F8보다 진한 톤을 써서
+       대비를 4.5:1 이상으로 확보 (버튼 배경색인 #4E75F8는 유지) */
+    --link-fg: #3b62e3 !important;
+    --link-hover-color: #2b4bc7 !important;
+    --link-selected-fg: #2b4bc7 !important;
 
     --module-bg: #ffffff !important;
     --module-text: #1a1a1a !important;
-    --module-link-color: #4E75F8 !important;
-    --module-link-hover-color: #3b62e3 !important;
+    --module-link-color: #3b62e3 !important;
+    --module-link-hover-color: #2b4bc7 !important;
 
     --button-bg: #4E75F8 !important;
     --button-hover-bg: #3b62e3 !important;
@@ -44,10 +46,18 @@
     --hairline-color: #eaeaea !important;
   }
 
-  body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  * {
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
 
   #header { background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px); background-size: 18px 18px; }
+  #header, #header a:link, #header a:visited { color: #ffffff !important; }
+  #user-tools a { color: #ffffff !important; }
   div.breadcrumbs { background-image: none; }
-  .module h2, .module caption, .inline-group h2 { background: #4E75F8; }
+  /* 모듈 제목 바 — 흰 글씨 대비 확보를 위해 버튼과 같은 진한 블루 사용 */
+  .module h2, .module caption, .inline-group h2 {
+    background: #3b62e3 !important;
+    color: #ffffff !important;
+  }
 </style>
 {% endblock %}
