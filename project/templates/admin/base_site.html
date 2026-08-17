@@ -1,0 +1,53 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  /* Django 관리자 화면 브랜드 적용.
+     prefers-color-scheme/data-theme 토글에 관계없이 항상 밝은 톤을
+     유지해야 해서 CSS 변수 각각에 !important를 붙임 (변수 자체에
+     !important를 걸면 다크모드 미디어쿼리보다 우선 적용됨) */
+  :root {
+    --primary: #4E75F8 !important;
+    --primary-fg: #ffffff !important;
+    --body-fg: #1a1a1a !important;
+    --body-bg: #fafafa !important;
+    --body-quiet-color: #666666 !important;
+    --body-loud-color: #1a1a1a !important;
+
+    --header-color: #ffffff !important;
+    --header-branding-color: #ffffff !important;
+    --header-bg: #101010 !important;
+    --header-link-color: #ffffff !important;
+
+    --breadcrumbs-fg: #f5f5f5 !important;
+    --breadcrumbs-link-fg: #ffffff !important;
+    --breadcrumbs-bg: #101010 !important;
+
+    --link-fg: #4E75F8 !important;
+    --link-hover-color: #3b62e3 !important;
+    --link-selected-fg: #3b62e3 !important;
+
+    --module-bg: #ffffff !important;
+    --module-text: #1a1a1a !important;
+    --module-link-color: #4E75F8 !important;
+    --module-link-hover-color: #3b62e3 !important;
+
+    --button-bg: #4E75F8 !important;
+    --button-hover-bg: #3b62e3 !important;
+    --default-button-bg: #4E75F8 !important;
+    --default-button-hover-bg: #3b62e3 !important;
+
+    --border-color: #eaeaea !important;
+    --hairline-color: #eaeaea !important;
+  }
+
+  body { font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+  #header { background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px); background-size: 18px 18px; }
+  div.breadcrumbs { background-image: none; }
+  .module h2, .module caption, .inline-group h2 { background: #4E75F8; }
+</style>
+{% endblock %}
