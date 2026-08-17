@@ -256,22 +256,31 @@ def template_create(request):
 
 
 # =========================================================
-# 공개 설정 (다른 팀원 목업 유지)
+# 공개 설정 (실 DB 연동 — EvaluationRound의 4개 visible 필드)
 # URL: /tutor/settings/
 # =========================================================
+@staff_member_required
 def tutor_settings(request):
-    settings = {
-        "evaluation_open": True,
-        "result_open": False,
-        "student_visible": True,
-        "anonymous": False,
-    }
+    round_id = request.GET.get("round_id") or request.POST.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
+
+    if request.method == "POST" and round_obj:
+        round_obj.team_first_rank_visible = "team_first_rank_visible" in request.POST
+        round_obj.team_rank_visible = "team_rank_visible" in request.POST
+        round_obj.individual_score_visible = "individual_score_visible" in request.POST
+        round_obj.individual_rank_visible = "individual_rank_visible" in request.POST
+        round_obj.save()
+        return redirect(f"/tutor/settings/?round_id={round_obj.id}")
 
     return render(
         request,
         "tutor/settings.html",
         {
-            "settings": settings,
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
         },
     )
 
