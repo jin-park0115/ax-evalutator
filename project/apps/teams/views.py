@@ -7,9 +7,13 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth import get_user_model
 
-from apps.evaluations.models import EvaluationRound, ScoreResult
-from .models import Team, TeamMember
-from .services import get_students_by_percentiles, assign_seed_based_teams, get_user_display_name
+from apps.evaluations.models import EvaluationRound
+from .models import Team, TeamMember, TeamUserScoreSeed
+from .services import (
+    get_students_by_percentiles, 
+    assign_seed_based_teams, 
+    get_user_display_name
+)
 
 User = get_user_model()
 
@@ -167,10 +171,15 @@ def get_percentile_preview(request):
     except json.JSONDecodeError:
         data = request.POST
 
+    round_id = data.get("round_id")
     thresholds = data.get("thresholds", [30.0, 60.0])
     excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
 
-    groups = get_students_by_percentiles(thresholds=thresholds, excluded_student_ids=excluded_student_ids)
+    groups = get_students_by_percentiles(
+        target_round_id=round_id,
+        thresholds=thresholds, 
+        excluded_student_ids=excluded_student_ids
+    )
 
     return JsonResponse({"thresholds": thresholds, "groups": groups}, status=200)
 
@@ -200,7 +209,8 @@ def auto_assign_teams(request):
             status=400,
         )
 
-    has_score_history = ScoreResult.objects.exists()
+    # 이전 회차 시드 기록 존재 여부 확인 (현재 회차 미만)
+    has_score_history = TeamUserScoreSeed.objects.filter(round_id__lt=target_round.id).exists()
 
     active_students = (
         User.objects.filter(role=User.Role.STUDENT, is_active=True)
@@ -225,7 +235,7 @@ def auto_assign_teams(request):
                 fixed_student_ids=fixed_student_ids,
                 excluded_student_ids=excluded_student_ids,
             )
-            msg = f"시드 점수 기반(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
+            msg = f"누적 시드 점수 기반(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
         else:
             existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 

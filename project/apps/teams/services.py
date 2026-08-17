@@ -1,10 +1,10 @@
 import math
 import random
 from django.db import transaction
-from django.db.models import Avg
+from django.db.models import OuterRef, Subquery, Value, FloatField
+from django.db.models.functions import Coalesce
 from django.contrib.auth import get_user_model
-from apps.evaluations.models import ScoreResult
-from .models import Team, TeamMember
+from .models import Team, TeamMember, TeamUserScoreSeed
 
 User = get_user_model()
 
@@ -16,37 +16,51 @@ def get_user_display_name(user):
     return getattr(user, "username", getattr(user, "email", str(user.id)))
 
 
-def get_student_seed_scores(excluded_student_ids=[]):
+def get_student_seed_scores(target_round_id=None, excluded_student_ids=[]):
     """
-    모든 활성 학생(STUDENT)의 이전 회차 final_score 평균 점수 계산 
-    (제외 대상 수강생 excluded_student_ids 차단)
+    모든 활성 학생(STUDENT)의 TEAM_USER_SCORE_SEED 테이블 내 직전 회차 cumulative_seed 조회
+    - Subquery를 사용해 N+1 문제 해결 및 단일 쿼리로 최적화
+    - target_round_id가 주어지면 해당 회차 '미만'의 가장 최신 시드 점수를 조회
     """
+    latest_seed_subquery = TeamUserScoreSeed.objects.filter(
+        user=OuterRef("pk")
+    )
+
+    if target_round_id:
+        latest_seed_subquery = latest_seed_subquery.filter(round_id__lt=target_round_id)
+
+    latest_seed_subquery = latest_seed_subquery.order_by("-round_id").values("cumulative_seed")[:1]
+
     students = (
         User.objects.filter(role=User.Role.STUDENT, is_active=True)
         .exclude(id__in=excluded_student_ids)
-        .distinct()
+        .annotate(
+            seed_score=Coalesce(
+                Subquery(latest_seed_subquery, output_field=FloatField()),
+                Value(0.0),
+            )
+        )
+        .order_by("-seed_score", "id")
     )
+
     student_scores = []
-
     for student in students:
-        avg_score = ScoreResult.objects.filter(user=student).aggregate(
-            Avg("final_score")
-        )["final_score__avg"]
-
         student_scores.append({
             "student_id": student.id,
             "student_name": get_user_display_name(student),
             "email": getattr(student, "email", ""),
-            "avg_score": round(avg_score, 2) if avg_score is not None else 0.0,
+            "avg_score": round(student.seed_score, 2),
         })
 
-    student_scores.sort(key=lambda x: x["avg_score"], reverse=True)
     return student_scores
 
 
-def get_students_by_percentiles(thresholds=[30.0, 60.0], excluded_student_ids=[]):
-    """퍼센테이지 슬라이더 변경 시 제외 학생을 뺀 점수대별 수강생 목록 실시간 반환"""
-    student_scores = get_student_seed_scores(excluded_student_ids=excluded_student_ids)
+def get_students_by_percentiles(target_round_id=None, thresholds=[30.0, 60.0], excluded_student_ids=[]):
+    """퍼센테이지 슬라이더 변경 시 제외 학생을 뺀 누적 시드 점수대별 수강생 목록 실시간 반환"""
+    student_scores = get_student_seed_scores(
+        target_round_id=target_round_id, 
+        excluded_student_ids=excluded_student_ids
+    )
     total_count = len(student_scores)
 
     if total_count == 0:
@@ -77,8 +91,12 @@ def get_students_by_percentiles(thresholds=[30.0, 60.0], excluded_student_ids=[]
 
 
 def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[], excluded_student_ids=[]):
-    """시드 점수 기반 팀 자동 편성 (고정 수강생 유지 + 제외 수강생 제거 + 구간별 균등 무작위 배정)"""
-    groups = get_students_by_percentiles(thresholds=thresholds, excluded_student_ids=excluded_student_ids)
+    """시드 점수 기반 팀 자동 편성"""
+    groups = get_students_by_percentiles(
+        target_round_id=target_round.id,
+        thresholds=thresholds, 
+        excluded_student_ids=excluded_student_ids
+    )
     existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
     # 1. 팀 수 조정
@@ -92,10 +110,9 @@ def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fi
         existing_teams = existing_teams[:num_teams]
 
     excluded_set = set(excluded_student_ids)
-    # 제외 대상에 포함된 인원은 고정 목록에서도 제거
     fixed_set = set(fixed_student_ids) - excluded_set
 
-    # 2. 해당 회차 기존 팀원 중 제외 대상 및 비고정 대상 매핑 삭제
+    # 2. 기존 팀원 중 제외 대상 및 비고정 대상 삭제
     TeamMember.objects.filter(team__round=target_round, student_id__in=excluded_set).delete()
     TeamMember.objects.filter(team__round=target_round).exclude(student_id__in=fixed_set).delete()
 
@@ -109,7 +126,7 @@ def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fi
         )
         team_assignments[team.id] = members
 
-    # 4. 구간별 미배정 학생들을 인원이 가장 적은 팀에 무작위 배정
+    # 4. 구간별 미배정 학생 무작위 균등 배정
     for group in groups:
         unassigned_group_students = [
             s["student_id"] for s in group["students"] 
