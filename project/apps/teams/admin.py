@@ -10,10 +10,10 @@ class TeamMemberInline(admin.TabularInline):
     model = TeamMember
     extra = 1
 
-    # 드롭다운 목록에 role='student'인 유저만 노출
+    # 드롭다운 목록에 role='STUDENT'인 유저만 노출
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "student":
-            kwargs["queryset"] = User.objects.filter(role="student")
+            kwargs["queryset"] = User.objects.filter(role=User.Role.STUDENT)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
@@ -30,8 +30,8 @@ class TeamMemberAdmin(admin.ModelAdmin):
     list_display = ("id", "team", "student")
     list_filter = ("team",)
 
-    # 단독 TeamMember 등록 페이지에서도 student만 노출
+    # 단독 TeamMember 등록 페이지에서도 STUDENT만 노출
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "student":
-            kwargs["queryset"] = User.objects.filter(role="student")
+            kwargs["queryset"] = User.objects.filter(role=User.Role.STUDENT)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
