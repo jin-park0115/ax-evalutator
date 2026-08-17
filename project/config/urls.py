@@ -86,11 +86,8 @@ urlpatterns = [
     # =========================
     # 로그인 / 로그아웃 & 소셜 로그인
     # =========================
-    
-    # 1. allauth URL을 먼저 배치
-    path('accounts/', include('allauth.urls')),
 
-    # 2. 커스텀 앱 URL 배치
+    # 1. 커스텀 앱 URL을 먼저 배치 (login/, logout/, signup/, pending-users/ 등)
     path('accounts/', include('apps.accounts.urls')),
 
     # 기존 auth_views를 사용한 직접 지정 로그인/로그아웃 경로
@@ -106,6 +103,11 @@ urlpatterns = [
         auth_views.LogoutView.as_view(),
         name="logout",
     ),
+
+    # 2. allauth URL은 커스텀 라우트 뒤에 배치
+    # (accounts/login/ 등은 위에서 이미 처리되므로, 여기서는
+    #  accounts/google/login/ 같은 소셜 로그인 전용 경로만 실질적으로 쓰인다)
+    path('accounts/', include('allauth.urls')),
 
     # 관리자
     path("admin/", admin.site.urls),
