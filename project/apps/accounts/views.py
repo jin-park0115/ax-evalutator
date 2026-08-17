@@ -64,10 +64,15 @@ def pending_user_list(request):
 def approve_user(request, user_id):
     if request.method == "POST":
         user = get_object_or_404(User, id=user_id)
-        user.role = User.Role.APPROVED  # 또는 수강생인 경우 User.Role.STUDENT
+        role = request.POST.get("role")
+        if role not in (User.Role.STUDENT, User.Role.ADMIN):
+            role = User.Role.APPROVED
+        user.role = role
+        if role == User.Role.ADMIN:
+            user.is_staff = True
         user.save()
         messages.success(
-            request, f"{user.username} ({user.email}) 님의 가입이 승인되었습니다."
+            request, f"{user.username} ({user.email}) 님이 {user.get_role_display()}(으)로 승인되었습니다."
         )
     return redirect("pending_user_list")
 
