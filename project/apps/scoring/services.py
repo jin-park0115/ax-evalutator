@@ -61,9 +61,9 @@ def calculate_rankings(
     names: dict[int, str],
 ) -> list[tuple[int, float, int]]:
     """
-    점수가 높은 순서로 석차를 계산한다.
+    점수가 높은 순서로 학생 순위를 계산한다.
 
-    동점자는 같은 석차를 사용하고,
+    동점자는 같은 순위를 사용하고,
     이름을 보조 정렬 기준으로 사용한다.
     """
 
@@ -87,6 +87,52 @@ def calculate_rankings(
 
         rankings.append(
             (student_id, score, rank)
+        )
+
+    return rankings
+
+
+def calculate_team_rankings(
+    team_scores: dict[int, float],
+    team_names: dict[int, str],
+) -> list[tuple[int, float, int]]:
+    """
+    팀별 점수를 받아 팀 순위를 계산한다.
+
+    점수가 높은 팀이 높은 순위를 가진다.
+    같은 점수인 팀은 같은 순위를 사용한다.
+    동점일 경우 팀 이름을 보조 정렬 기준으로 사용한다.
+
+    반환값:
+        [
+            (team_id, team_score, rank),
+            ...
+        ]
+    """
+
+    sorted_team_ids = sorted(
+        team_scores.keys(),
+        key=lambda team_id: (
+            -team_scores[team_id],
+            team_names[team_id],
+        ),
+    )
+
+    rankings = []
+
+    for index, team_id in enumerate(sorted_team_ids):
+        score = team_scores[team_id]
+
+        if (
+            index > 0
+            and score == team_scores[sorted_team_ids[index - 1]]
+        ):
+            rank = rankings[index - 1][2]
+        else:
+            rank = index + 1
+
+        rankings.append(
+            (team_id, score, rank)
         )
 
     return rankings
@@ -281,7 +327,6 @@ def calculate_student_result(
         student_id,
     )
 
-    # 팀 평가 또는 개인 평가가 아직 없는 경우
     if student_team_score is None or student_individual_score is None:
         team_score = (
             calculate_team_score(
@@ -311,7 +356,6 @@ def calculate_student_result(
             "final_score": None,
         }
 
-    # 팀 평가와 개인 평가가 모두 존재하는 경우
     team_score = calculate_team_score(
         student_team_score,
         tutor_team_score,
@@ -367,7 +411,6 @@ def calculate_round(round) -> list[dict]:
             team.id,
         )
 
-        # 평가가 덜 끝난 학생은 건너뛴다.
         if (
             result["team_score"] is None
             or result["individual_score"] is None
