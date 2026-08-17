@@ -3,9 +3,30 @@ from django.shortcuts import render
 
 @login_required
 def student_home(request):
-    state = request.GET.get("state", "before")
+    from apps.evaluations.models import EvaluationRound
+
+    round_obj = (
+        EvaluationRound.objects
+        .filter(status=EvaluationRound.Status.IN_PROGRESS)
+        .order_by("-id")
+        .first()
+    )
+
+    if round_obj:
+        state = "open"
+    else:
+        state = "before"
+
     team, members = get_my_team(request.user)
-    return render(request, "student/home.html", {"state": state, "team": team})
+
+    return render(
+        request,
+        "student/home.html",
+        {
+            "state": state,
+            "team": team,
+        },
+    )
 
 
 @login_required
