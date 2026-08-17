@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}개인 상호평가{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">개인 상호평가</h1>
+        <p class="text-muted mb-0">
+            같은 팀원(본인 제외) 전원을 한 번에 평가하고 제출합니다.
+        </p>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if already_done %}
+    <div class="alert alert-success">
+        이미 개인 상호평가를 제출했습니다.
+    </div>
+    {% elif not round %}
+    <div class="alert alert-info">
+        진행 중인 평가 회차가 없습니다.
+    </div>
+    {% elif not members %}
+    <div class="alert alert-info">
+        평가할 팀원이 없습니다. (팀 편성 전이거나, 같은 팀원이 없습니다)
+    </div>
+    {% elif not items %}
+    <div class="alert alert-info">
+        아직 등록된 개인 평가 문항이 없습니다. 튜터가 평가 템플릿을 등록하면 여기에 표시됩니다.
+    </div>
+    {% else %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% for member in members %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>{{ member.student.username }}</strong>
+            </div>
+            <div class="card-body">
+
+                {% for item in items %}
+                <div class="mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                    <label class="form-label">{{ item.text }}</label>
+                    <div class="d-flex gap-3">
+                        {% for score in "12345" %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio"
+                                   name="item_{{ member.student.id }}_{{ item.key }}"
+                                   id="{{ member.student.id }}_{{ item.key }}_{{ score }}"
+                                   value="{{ score }}" required>
+                            <label class="form-check-label" for="{{ member.student.id }}_{{ item.key }}_{{ score }}">
+                                {{ score }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+            </div>
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary">전체 제출</button>
+
+    </form>
+
+    {% endif %}
+
+</div>
+{% endblock %}

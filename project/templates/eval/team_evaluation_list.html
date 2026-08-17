@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}팀 평가{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">팀 평가</h1>
+        <p class="text-muted mb-0">
+            내 팀을 제외한 다른 팀을 평가할 수 있습니다. 이미 평가한 팀은 목록에서 제외됩니다.
+        </p>
+    </div>
+
+    {% if not round %}
+    <div class="alert alert-info">
+        진행 중인 평가 회차가 없습니다.
+    </div>
+    {% else %}
+
+    <div class="card">
+        <div class="card-header">
+            <strong>평가 가능한 팀</strong>
+            <span class="text-muted">({{ teams|length }}개)</span>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>팀명</th>
+                            <th style="width: 160px;">평가</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for team in teams %}
+                        <tr>
+                            <td>{{ team.name }}</td>
+                            <td>
+                                <a href="{% url 'eval_team_form' team.id %}" class="btn btn-sm btn-primary">
+                                    평가하기
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center py-4 text-muted">
+                                평가할 수 있는 팀이 없습니다. (팀 편성 전이거나, 모든 팀 평가를 이미 완료했습니다)
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+
+</div>
+{% endblock %}

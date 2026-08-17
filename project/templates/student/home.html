@@ -64,8 +64,8 @@
         &nbsp;
         팀원 평가 {% include "components/badge.html" with status="대기" %}
       </p>
-      <a class="btn btn-primary" href="#">팀 평가하기</a>
-      <a class="btn btn-primary" href="#">팀원 평가하기</a>
+      <a class="btn btn-primary" href="{% url 'eval_team_list' %}">팀 평가하기</a>
+      <a class="btn btn-primary" href="{% url 'eval_peer_form' %}">팀원 평가하기</a>
 
     {% elif state == "done" %}
       <p class="card-text">
