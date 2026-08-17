@@ -2,7 +2,7 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
     <div>
         <h1 class="h3 mb-1">팀 편성</h1>
         <p class="text-muted mb-0">
@@ -10,7 +10,7 @@
         </p>
     </div>
 
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
         <select class="form-select form-select-sm" id="roundSelect" style="width: 200px;">
             {% for r in rounds %}
             <option value="{{ r.id }}" {% if round and r.id == round.id %}selected{% endif %}>
