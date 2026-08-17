@@ -8,138 +8,95 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="{% static 'css/style.css' %}" rel="stylesheet">
   <style>
-    /* KANT + Threads 다크 테마 — Bootstrap 기본 클래스를 직접 덮어써서
-       기존 화면 전체(카드/버튼/폼/표 등)에 템플릿 수정 없이 일괄 적용 */
+    /* KANT + Threads 스타일 — 밝은 배경 + 상단 네비만 어두운 히어로.
+       Bootstrap 기본 클래스를 직접 다듬어서 기존 화면 전체에
+       템플릿 수정 없이 일괄 적용 */
 
     body {
-      background-color: #101010 !important;
-      color: #f3f3f3 !important;
+      background-color: #fafafa;
+      color: #1a1a1a;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* 네비게이션 */
+    /* 네비게이션 — 어두운 히어로 밴드 + 도트 패턴 */
     .navbar {
       background-color: #101010 !important;
-      border-bottom: 1px solid #222222 !important;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+      background-size: 18px 18px;
+      padding-top: 1rem !important;
+      padding-bottom: 1rem !important;
     }
     .navbar-brand {
-      font-weight: 900 !important;
+      font-weight: 800 !important;
       letter-spacing: -0.5px;
       color: #ffffff !important;
     }
-    .navbar a.text-decoration-none {
-      color: #999999 !important;
+    .navbar a.text-decoration-none,
+    .navbar .dropdown-toggle {
+      color: #b3b3b3 !important;
       font-weight: 600;
     }
-    .navbar a.text-decoration-none:hover {
+    .navbar a.text-decoration-none:hover,
+    .navbar .dropdown-toggle:hover {
       color: #ffffff !important;
     }
+    .navbar .text-muted { color: #8a8a8a !important; }
+    .navbar .btn-outline-primary {
+      color: #ffffff !important;
+      border-color: #444444 !important;
+    }
+    .navbar .btn-outline-primary:hover {
+      background-color: #4E75F8 !important;
+      border-color: #4E75F8 !important;
+    }
 
-    /* 카드 */
+    /* 카드 — 밝은 배경, 얇은 테두리, 부드러운 그림자 (Threads 느낌) */
     .card {
-      background-color: #181818 !important;
-      border: 1px solid #262626 !important;
-      border-radius: 16px !important;
-      color: #f3f3f3 !important;
+      border: 1px solid #eaeaea;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
     .card-header {
-      background-color: #1e1e1e !important;
-      border-bottom: 1px solid #262626 !important;
-      color: #f3f3f3 !important;
+      background-color: #ffffff;
+      border-bottom: 1px solid #eaeaea;
+      font-weight: 700;
     }
 
-    /* 버튼 */
+    /* 버튼 — 파란 포인트 컬러 */
     .btn-primary {
       background-color: #4E75F8 !important;
       border-color: #4E75F8 !important;
-      color: #ffffff !important;
     }
     .btn-primary:hover {
       background-color: #3b62e3 !important;
       border-color: #3b62e3 !important;
     }
     .btn-outline-primary {
-      color: #4E75F8 !important;
-      border-color: #4E75F8 !important;
+      color: #4E75F8;
+      border-color: #4E75F8;
     }
     .btn-outline-primary:hover {
-      background-color: #4E75F8 !important;
-      color: #ffffff !important;
+      background-color: #4E75F8;
+      color: #ffffff;
     }
-    .btn-outline-secondary, .btn-outline-danger {
-      border-color: #333333 !important;
-    }
-    .btn-outline-secondary { color: #cccccc !important; }
-    .btn-outline-danger { color: #ff6b6b !important; }
     .btn-link { color: #4E75F8 !important; }
 
     /* 폼 */
-    .form-control, .form-select {
-      background-color: #1e1e1e !important;
-      border: 1px solid #333333 !important;
-      color: #f3f3f3 !important;
-    }
     .form-control:focus, .form-select:focus {
-      background-color: #1e1e1e !important;
-      border-color: #4E75F8 !important;
-      color: #f3f3f3 !important;
-      box-shadow: 0 0 0 0.2rem rgba(78, 117, 248, 0.25) !important;
-    }
-    .form-control::placeholder { color: #666666 !important; }
-    .form-label { color: #cccccc !important; }
-    .form-check-input {
-      background-color: #1e1e1e !important;
-      border-color: #444444 !important;
+      border-color: #4E75F8;
+      box-shadow: 0 0 0 0.2rem rgba(78, 117, 248, 0.15);
     }
     .form-check-input:checked {
-      background-color: #4E75F8 !important;
-      border-color: #4E75F8 !important;
+      background-color: #4E75F8;
+      border-color: #4E75F8;
     }
 
-    /* 표 */
-    .table {
-      color: #f3f3f3 !important;
-      border-color: #262626 !important;
-    }
-    .table thead.table-light th, .table > :not(caption) > * > * {
-      background-color: #181818 !important;
-      color: #f3f3f3 !important;
-      border-color: #262626 !important;
-    }
-    .table-hover > tbody > tr:hover > * {
-      background-color: #222222 !important;
-      color: #f3f3f3 !important;
+    h1, h2, h3, h4, h5, .navbar-brand {
+      font-weight: 800;
+      letter-spacing: -0.3px;
     }
 
-    /* 목록/드롭다운 */
-    .list-group-item {
-      background-color: #181818 !important;
-      border-color: #262626 !important;
-      color: #f3f3f3 !important;
-    }
-    .dropdown-menu {
-      background-color: #1e1e1e !important;
-      border: 1px solid #262626 !important;
-    }
-    .dropdown-item {
-      color: #cccccc !important;
-    }
-    .dropdown-item:hover, .dropdown-item:focus {
-      background-color: #2a2a2a !important;
-      color: #ffffff !important;
-    }
-
-    /* 텍스트/보조 요소 */
-    .text-muted { color: #888888 !important; }
     a { color: #4E75F8; }
-    hr { border-color: #262626; }
-
-    /* 알림 */
-    .alert { border: 1px solid #262626 !important; }
-    .alert-info { background-color: #14243d !important; color: #a7c7ff !important; }
-    .alert-success { background-color: #10301c !important; color: #8fe3ab !important; }
-    .alert-warning { background-color: #3a2d0d !important; color: #ffd479 !important; }
-    .alert-danger { background-color: #3a1414 !important; color: #ff9b9b !important; }
   </style>
 </head>
 <body>
