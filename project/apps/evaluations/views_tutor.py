@@ -286,24 +286,77 @@ def tutor_settings(request):
 
 
 # =========================================================
-# 평가 현황 (다른 팀원 목업 유지)
+# 평가 현황 (실 DB 연동 — 제출률/미제출자)
 # URL: /tutor/evaluation-status/
 # =========================================================
+@staff_member_required
 def evaluation_status(request):
-    status = {
-        "total_students": 6,
-        "completed_students": 4,
-        "remaining_students": 2,
-        "completion_rate": 66,
-        "total_teams": 3,
-        "completed_teams": 2,
-        "remaining_teams": 1,
-    }
+    from apps.teams.models import Team, TeamMember
+    from apps.evaluations.models import IndividualEvaluation, TeamEvaluation
+
+    round_id = request.GET.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
+
+    status = None
+    non_submitters = []
+
+    if round_obj:
+        members = (
+            TeamMember.objects.filter(team__round=round_obj)
+            .select_related("student", "team")
+            .order_by("student__username")
+        )
+        total_students = members.count()
+
+        # 개인 상호평가는 팀원 전원을 한 번에 제출하는 구조라
+        # is_final=True 레코드가 하나라도 있으면 그 학생은 제출 완료로 본다
+        submitted_ids = set(
+            IndividualEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("evaluator_id", flat=True)
+        )
+        completed_students = len({m.student_id for m in members if m.student_id in submitted_ids})
+        remaining_students = total_students - completed_students
+        completion_rate = (
+            round(completed_students / total_students * 100) if total_students else 0
+        )
+
+        non_submitters = [m.student for m in members if m.student_id not in submitted_ids]
+
+        teams = Team.objects.filter(round=round_obj)
+        total_teams = teams.count()
+        completed_teams = 0
+        for team in teams:
+            evaluators_count = (
+                TeamEvaluation.objects.filter(round=round_obj, target_team=team)
+                .values("evaluator_team")
+                .distinct()
+                .count()
+            )
+            if total_teams > 1 and evaluators_count >= total_teams - 1:
+                completed_teams += 1
+        remaining_teams = total_teams - completed_teams
+
+        status = {
+            "total_students": total_students,
+            "completed_students": completed_students,
+            "remaining_students": remaining_students,
+            "completion_rate": completion_rate,
+            "total_teams": total_teams,
+            "completed_teams": completed_teams,
+            "remaining_teams": remaining_teams,
+        }
 
     return render(
         request,
         "tutor/evaluation_status.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "status": status,
+            "non_submitters": non_submitters,
         },
     )
