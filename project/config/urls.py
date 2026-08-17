@@ -30,6 +30,12 @@ urlpatterns = [
         include("apps.students.urls"),
     ),
 
+    # 학생 평가
+    path(
+        "",
+        include("apps.evaluations.urls"),
+    ),
+
     # 팀 편성 API
     # round_team_members / create_team /
     # assign_or_move_student / auto_assign_teams /
@@ -77,6 +83,7 @@ urlpatterns = [
         template_list,
         name="tutor_templates",
     ),
+
     path(
         "tutor/templates/new/",
         template_create,
