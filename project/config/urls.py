@@ -14,11 +14,6 @@ from apps.evaluations.views_tutor import (
     tutor_settings,
     evaluation_status,
 )
-from apps.evaluations.views_eval import (
-    team_evaluation_list,
-    team_evaluation_form,
-    peer_evaluation_form,
-)
 
 
 urlpatterns = [
@@ -35,8 +30,10 @@ urlpatterns = [
         include("apps.students.urls"),
     ),
 
-    # 팀 편성 API (BE1 기완성 — round_team_members/create_team/
-    # assign_or_move_student/auto_assign_teams/confirm_team_assignment)
+    # 팀 편성 API
+    # round_team_members / create_team /
+    # assign_or_move_student / auto_assign_teams /
+    # confirm_team_assignment
     path(
         "teams/",
         include("apps.teams.urls"),
@@ -101,31 +98,10 @@ urlpatterns = [
     ),
 
     # =========================
-    # 평가 (FE2 계약: eval_team_list / eval_team_form / eval_peer_form)
-    # =========================
-
-    path(
-        "eval/teams/",
-        team_evaluation_list,
-        name="eval_team_list",
-    ),
-    path(
-        "eval/teams/<int:team_id>/",
-        team_evaluation_form,
-        name="eval_team_form",
-    ),
-    path(
-        "eval/peer/",
-        peer_evaluation_form,
-        name="eval_peer_form",
-    ),
-
-
-# =========================
     # 로그인 / 로그아웃 & 소셜 로그인
     # =========================
 
-    # 1. 커스텀 로그인 경로를 allauth보다 위에 배치합니다.
+    # 커스텀 로그인 경로를 allauth보다 위에 배치
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(
@@ -133,16 +109,28 @@ urlpatterns = [
         ),
         name="login",
     ),
+
     path(
         "accounts/logout/",
         auth_views.LogoutView.as_view(),
         name="logout",
     ),
 
-    # 2. 커스텀 앱(signup/, pending-users/ 등) 및 allauth URL 배치
-    path('accounts/', include('apps.accounts.urls')),
-    path('accounts/', include('allauth.urls')),
+    # 커스텀 accounts 앱
+    path(
+        "accounts/",
+        include("apps.accounts.urls"),
+    ),
+
+    # allauth
+    path(
+        "accounts/",
+        include("allauth.urls"),
+    ),
 
     # 관리자
-    path("admin/", admin.site.urls),
+    path(
+        "admin/",
+        admin.site.urls,
+    ),
 ]
