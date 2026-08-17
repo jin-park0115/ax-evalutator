@@ -259,6 +259,17 @@ def calculate_student_result(
     student_id: int,
     team_id: int,
 ) -> dict:
+    """
+    학생 1명의 팀/개인/최종 점수를 계산한다.
+
+    팀 평가 또는 개인 평가가 아직 없는 경우
+    해당 점수는 None으로 처리하고,
+    최종 점수도 None으로 반환한다.
+
+    이렇게 하면 평가가 덜 끝난 학생 때문에
+    전체 calculate_round()가 중단되지 않는다.
+    """
+
     student_team_score = get_team_score_from_db(
         round.id,
         team_id,
@@ -279,6 +290,38 @@ def calculate_student_result(
         student_id,
     )
 
+    # 팀 평가 또는 개인 평가가 아직 없는 경우
+    if student_team_score is None or student_individual_score is None:
+        team_score = (
+            calculate_team_score(
+                student_team_score,
+                tutor_team_score,
+                round.student_weight,
+                round.tutor_weight,
+            )
+            if student_team_score is not None
+            else None
+        )
+
+        individual_score = (
+            calculate_individual_score(
+                student_individual_score,
+                tutor_individual_score,
+                round.student_weight,
+                round.tutor_weight,
+            )
+            if student_individual_score is not None
+            else None
+        )
+
+        return {
+            "team_score": team_score,
+            "individual_score": individual_score,
+            "final_score": None,
+        }
+
+    # 팀 평가와 개인 평가가 모두 존재하는 경우에만
+    # 팀 점수, 개인 점수, 최종 점수를 계산한다.
     team_score = calculate_team_score(
         student_team_score,
         tutor_team_score,
@@ -342,6 +385,8 @@ def calculate_round(round) -> list[dict]:
             team.id,
         )
 
+        # 평가가 덜 끝난 학생은 건너뛴다.
+        # 다른 학생들의 계산은 계속 진행된다.
         if (
             result["team_score"] is None
             or result["individual_score"] is None
