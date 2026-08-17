@@ -14,6 +14,11 @@ urlpatterns = [
         name="approve_user",
     ),
     path(
+        "pending-users/<int:user_id>/assign-role/",
+        views.assign_role,
+        name="assign_role",
+    ),
+    path(
         "pending-users/<int:user_id>/reject/",
         views.reject_user,
         name="reject_user",
