@@ -29,11 +29,18 @@ class ScoringServiceTests(SimpleTestCase):
         self.assertEqual(result, 86.0)
 
     def test_calculate_rankings(self):
-        result = calculate_rankings({
-            1: 90.0,
-            2: 80.0,
-            3: 95.0,
-        })
+        result = calculate_rankings(
+            {
+                1: 90.0,
+                2: 80.0,
+                3: 95.0,
+            },
+            {
+                1: "김철수",
+                2: "이영희",
+                3: "박민수",
+            },
+        )
 
         expected = [
             (3, 95.0, 1),
@@ -55,7 +62,6 @@ class ScoringServiceTests(SimpleTestCase):
         }
 
         self.assertEqual(result, expected)
-
 
     def test_calculate_trimmed_mean(self):
         result = calculate_trimmed_mean([10, 20, 30, 40, 100])
