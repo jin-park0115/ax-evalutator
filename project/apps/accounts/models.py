@@ -1,5 +1,6 @@
 # apps/accounts/models.py
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.validators import RegexValidator
 from django.db import models
 
 
@@ -16,9 +17,10 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
-        extra_fields.setdefault("role", User.Role.ADMIN)  # role=ADMIN 자동 부여
+        # self.model을 통한 안전한 Role 참조로 수정
+        extra_fields.setdefault("role", self.model.Role.ADMIN)
 
-        if extra_fields.get("role") != User.Role.ADMIN:
+        if extra_fields.get("role") != self.model.Role.ADMIN:
             raise ValueError("Superuser의 role은 반드시 ADMIN이어야 합니다.")
 
         return self.create_user(email, password, **extra_fields)
@@ -30,6 +32,23 @@ class User(AbstractUser):
         APPROVED = "APPROVED", "승인완료(역할미부여)"
         ADMIN = "ADMIN", "관리자"
         STUDENT = "STUDENT", "학생"
+
+    # 한글을 허용하는 커스텀 username 검증기 정의
+    username_validator = RegexValidator(
+        regex=r"^[\w가-힣.@+-]+$",
+        message="한글, 영문, 숫자 및 특수문자(.@+-)만 사용할 수 있습니다.",
+    )
+
+    # username 필드 재정의 (커스텀 validator 적용)
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        help_text="Required. 150 characters or fewer. Letters, digits and @/./+/-/_/Korean only.",
+        validators=[username_validator],
+        error_messages={
+            "unique": "A user with that username already exists.",
+        },
+    )
 
     # 로그인 ID로 사용할 unique 이메일
     email = models.EmailField(unique=True)
