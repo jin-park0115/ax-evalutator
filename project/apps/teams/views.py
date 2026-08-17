@@ -149,7 +149,6 @@ def assign_or_move_student(request):
         )
 
     with transaction.atomic():
-        # 기존 회차 내 다른 팀에 속해있었다면 중복 방지를 위해 삭제 후 배정
         TeamMember.objects.filter(team__round=target_round, student=student).delete()
         TeamMember.objects.create(team=target_team, student=student)
 
@@ -169,7 +168,9 @@ def get_percentile_preview(request):
         data = request.POST
 
     thresholds = data.get("thresholds", [30.0, 60.0])
-    groups = get_students_by_percentiles(thresholds)
+    excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
+
+    groups = get_students_by_percentiles(thresholds=thresholds, excluded_student_ids=excluded_student_ids)
 
     return JsonResponse({"thresholds": thresholds, "groups": groups}, status=200)
 
@@ -186,6 +187,7 @@ def auto_assign_teams(request):
     team_count = data.get("team_count")
     thresholds = data.get("thresholds", [30.0, 60.0])
     fixed_student_ids = [int(sid) for sid in data.get("fixed_student_ids", [])]
+    excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
 
     if not round_id:
         return JsonResponse({"error": "round_id는 필수입니다."}, status=400)
@@ -198,28 +200,33 @@ def auto_assign_teams(request):
             status=400,
         )
 
-    # 이전 회차 성적 데이터 존재 여부
     has_score_history = ScoreResult.objects.exists()
-    all_students = list(User.objects.filter(role=User.Role.STUDENT).distinct())
-    total_students_count = len(all_students)
+
+    active_students = (
+        User.objects.filter(role=User.Role.STUDENT, is_active=True)
+        .exclude(id__in=excluded_student_ids)
+        .distinct()
+    )
+    total_students_count = active_students.count()
 
     if total_students_count == 0:
-        return JsonResponse({"error": "등록된 수강생이 없습니다."}, status=400)
+        return JsonResponse({"error": "배정 가능한 대상 수강생이 없습니다."}, status=400)
 
     num_teams = int(team_count) if team_count else calculate_optimal_team_count(total_students_count)
+    if num_teams < 1:
+        num_teams = 1
 
     with transaction.atomic():
         if has_score_history:
-            # 1. 시드 점수 기반 자동 편성
             assign_seed_based_teams(
                 target_round=target_round,
                 num_teams=num_teams,
                 thresholds=thresholds,
                 fixed_student_ids=fixed_student_ids,
+                excluded_student_ids=excluded_student_ids,
             )
-            msg = f"시드 점수 기반(상위 {thresholds}%) 총 {num_teams}개 팀 자동 편성이 완료되었습니다."
+            msg = f"시드 점수 기반(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
         else:
-            # 2. 최초 회차 무작위 자동 편성
             existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
             if len(existing_teams) < num_teams:
@@ -231,19 +238,21 @@ def auto_assign_teams(request):
                     team_to_delete.delete()
                 existing_teams = existing_teams[:num_teams]
 
-            fixed_set = set(fixed_student_ids)
+            excluded_set = set(excluded_student_ids)
+            fixed_set = set(fixed_student_ids) - excluded_set
 
-            # 비고정 학생들의 팀 매핑 완전 삭제
+            TeamMember.objects.filter(team__round=target_round, student_id__in=excluded_set).delete()
             TeamMember.objects.filter(team__round=target_round).exclude(student_id__in=fixed_set).delete()
 
-            # 현재 배정된 학생 제외한 남은 미배정 수강생 추출
             assigned_student_ids = set(
                 TeamMember.objects.filter(team__round=target_round).values_list("student_id", flat=True)
             )
-            unassigned_students = [s for s in all_students if s.id not in assigned_student_ids]
+            unassigned_students = [
+                s for s in active_students 
+                if s.id not in assigned_student_ids and s.id not in excluded_set
+            ]
             random.shuffle(unassigned_students)
 
-            # 팀별 현재 인원 파악
             team_member_counts = {
                 team.id: TeamMember.objects.filter(team=team).count() for team in existing_teams
             }
@@ -257,13 +266,14 @@ def auto_assign_teams(request):
                 TeamMember.objects.create(team=selected_team, student=student)
                 team_member_counts[selected_team_id] += 1
 
-            msg = f"최초 회차 - 무작위 총 {num_teams}개 팀 자동 편성이 완료되었습니다."
+            msg = f"최초 회차 - 무작위(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
 
     return JsonResponse(
         {
             "message": msg,
             "round_id": int(round_id),
             "team_count": num_teams,
+            "excluded_count": len(excluded_student_ids),
             "is_seed_based": has_score_history,
         },
         status=200,

@@ -16,19 +16,16 @@ def get_user_display_name(user):
     return getattr(user, "username", getattr(user, "email", str(user.id)))
 
 
-def assign_teams(student_ids: list[int], team_size: int = 5) -> list[list[int]]:
-    if team_size <= 0:
-        raise ValueError("team_size must be greater than 0")
-    return [student_ids[index : index + team_size] for index in range(0, len(student_ids), team_size)]
-
-
-def build_teams(student_ids: list[int], team_size: int = 5) -> list[list[int]]:
-    return assign_teams(student_ids, team_size=team_size)
-
-
-def get_student_seed_scores():
-    """모든 학생(STUDENT)의 이전 회차 final_score 평균 점수를 계산 (중복 없는 학생 목록)"""
-    students = User.objects.filter(role=User.Role.STUDENT).distinct()
+def get_student_seed_scores(excluded_student_ids=[]):
+    """
+    모든 활성 학생(STUDENT)의 이전 회차 final_score 평균 점수 계산 
+    (제외 대상 수강생 excluded_student_ids 차단)
+    """
+    students = (
+        User.objects.filter(role=User.Role.STUDENT, is_active=True)
+        .exclude(id__in=excluded_student_ids)
+        .distinct()
+    )
     student_scores = []
 
     for student in students:
@@ -43,14 +40,13 @@ def get_student_seed_scores():
             "avg_score": round(avg_score, 2) if avg_score is not None else 0.0,
         })
 
-    # 평균 점수 내림차순 정렬
     student_scores.sort(key=lambda x: x["avg_score"], reverse=True)
     return student_scores
 
 
-def get_students_by_percentiles(thresholds=[30.0, 60.0]):
-    """퍼센테이지 슬라이더 변경 시 점수대별 수강생 목록 실시간 반환"""
-    student_scores = get_student_seed_scores()
+def get_students_by_percentiles(thresholds=[30.0, 60.0], excluded_student_ids=[]):
+    """퍼센테이지 슬라이더 변경 시 제외 학생을 뺀 점수대별 수강생 목록 실시간 반환"""
+    student_scores = get_student_seed_scores(excluded_student_ids=excluded_student_ids)
     total_count = len(student_scores)
 
     if total_count == 0:
@@ -80,9 +76,9 @@ def get_students_by_percentiles(thresholds=[30.0, 60.0]):
     return groups
 
 
-def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[]):
-    """시드 점수 기반 팀 자동 편성 (고정 수강생 유지 + 구간별 균등 무작위 배정 + 중복 완전 차단)"""
-    groups = get_students_by_percentiles(thresholds)
+def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[], excluded_student_ids=[]):
+    """시드 점수 기반 팀 자동 편성 (고정 수강생 유지 + 제외 수강생 제거 + 구간별 균등 무작위 배정)"""
+    groups = get_students_by_percentiles(thresholds=thresholds, excluded_student_ids=excluded_student_ids)
     existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
     # 1. 팀 수 조정
@@ -95,33 +91,39 @@ def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fi
             team_to_delete.delete()
         existing_teams = existing_teams[:num_teams]
 
-    fixed_set = set(fixed_student_ids)
+    excluded_set = set(excluded_student_ids)
+    # 제외 대상에 포함된 인원은 고정 목록에서도 제거
+    fixed_set = set(fixed_student_ids) - excluded_set
 
-    # 2. 해당 회차 전체에서 고정 수강생이 아닌 팀원 관계 삭제 (중복 생성 방지)
+    # 2. 해당 회차 기존 팀원 중 제외 대상 및 비고정 대상 매핑 삭제
+    TeamMember.objects.filter(team__round=target_round, student_id__in=excluded_set).delete()
     TeamMember.objects.filter(team__round=target_round).exclude(student_id__in=fixed_set).delete()
 
     # 3. 고정 수강생 기반 현재 팀별 인원 추적
     team_assignments = {team.id: [] for team in existing_teams}
     for team in existing_teams:
-        members = list(TeamMember.objects.filter(team=team).values_list("student_id", flat=True))
+        members = list(
+            TeamMember.objects.filter(team=team)
+            .exclude(student_id__in=excluded_set)
+            .values_list("student_id", flat=True)
+        )
         team_assignments[team.id] = members
 
-    # 4. 구간별 학생들을 라운드로빈/최소인원 팀에 배정
+    # 4. 구간별 미배정 학생들을 인원이 가장 적은 팀에 무작위 배정
     for group in groups:
         unassigned_group_students = [
-            s["student_id"] for s in group["students"] if s["student_id"] not in fixed_set
+            s["student_id"] for s in group["students"] 
+            if s["student_id"] not in fixed_set and s["student_id"] not in excluded_set
         ]
         random.shuffle(unassigned_group_students)
 
         for student_id in unassigned_group_students:
-            # 팀 인원이 가장 적은 팀들을 찾음
             min_count = min(len(members) for members in team_assignments.values())
             candidate_team_ids = [
                 t_id for t_id, members in team_assignments.items() if len(members) == min_count
             ]
             selected_team_id = random.choice(candidate_team_ids)
 
-            # 메모리 및 DB 동시 업데이트
             team_assignments[selected_team_id].append(student_id)
             selected_team = next(t for t in existing_teams if t.id == selected_team_id)
             TeamMember.objects.create(team=selected_team, student_id=student_id)
