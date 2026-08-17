@@ -35,6 +35,13 @@ urlpatterns = [
         include("apps.students.urls"),
     ),
 
+    # 팀 편성 API (BE1 기완성 — round_team_members/create_team/
+    # assign_or_move_student/auto_assign_teams/confirm_team_assignment)
+    path(
+        "teams/",
+        include("apps.teams.urls"),
+    ),
+
     # =========================
     # Tutor / FE2
     # =========================

@@ -35,8 +35,10 @@ def calculate_optimal_team_count(total_students):
 
 
 def is_round_editable(target_round):
-    editable_statuses = ["UPCOMING", "DRAFT", "READY"]
-    return getattr(target_round, "status", "UPCOMING") in editable_statuses
+    # EvaluationRound.Status 값은 소문자("draft","ready","in_progress","finished")인데
+    # 대문자 목록과 비교하고 있어서 항상 False가 나오던 버그 수정
+    editable_statuses = [EvaluationRound.Status.DRAFT, EvaluationRound.Status.READY]
+    return getattr(target_round, "status", EvaluationRound.Status.DRAFT) in editable_statuses
 
 
 # ---------------------------------------------------------------------------

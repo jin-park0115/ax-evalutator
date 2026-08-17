@@ -68,60 +68,49 @@ def toggle_team_first_rank(request, round_id):
 
 
 # =========================================================
-# 팀 편성 (다른 팀원 목업 유지)
+# 팀 편성 (실 DB 연동 — apps/teams의 실제 API와 연결)
 # URL: /tutor/team-build/
 # =========================================================
+@staff_member_required
 def team_build(request):
-    print("team_build 호출됨")
-    print("요청 방식:", request.method)
-    print("POST 데이터:", request.POST)
+    from apps.teams.models import Team, TeamMember
 
-    if request.method == "POST":
-        if "auto_assign" in request.POST:
-            print("자동 편성 실행!")
+    round_id = request.GET.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
 
-    teams = [
-        {
-            "team_no": 1,
-            "avg_seed": 82.4,
-            "members": [
-                {"name": "김철수", "team_no": 1},
-                {"name": "이영희", "team_no": 1},
-            ],
-        },
-        {
-            "team_no": 2,
-            "avg_seed": 81.9,
-            "members": [
-                {"name": "박민수", "team_no": 2},
-                {"name": "최지우", "team_no": 2},
-            ],
-        },
-        {
-            "team_no": 3,
-            "avg_seed": 80.7,
-            "members": [
-                {"name": "정수빈", "team_no": 3},
-                {"name": "한지민", "team_no": 3},
-            ],
-        },
-    ]
+    teams = []
+    if round_obj:
+        teams = (
+            Team.objects.filter(round=round_obj)
+            .prefetch_related("members__student")
+            .order_by("id")
+        )
 
-    students = [
-        {"name": "김철수", "team_no": 1},
-        {"name": "이영희", "team_no": 1},
-        {"name": "박민수", "team_no": 2},
-        {"name": "최지우", "team_no": 2},
-        {"name": "정수빈", "team_no": 3},
-        {"name": "한지민", "team_no": 3},
-    ]
+    assigned_ids = set()
+    if round_obj:
+        assigned_ids = set(
+            TeamMember.objects.filter(team__round=round_obj).values_list(
+                "student_id", flat=True
+            )
+        )
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    unassigned_students = User.objects.filter(role=User.Role.STUDENT).exclude(
+        id__in=assigned_ids
+    )
 
     return render(
         request,
         "tutor/team_build.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "teams": teams,
-            "students": students,
+            "unassigned_students": unassigned_students,
         },
     )
 
