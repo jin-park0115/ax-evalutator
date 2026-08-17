@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if process == "connect" %}계정 연결{% else %}소셜 로그인{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-body p-4 text-center">
+
+        <h4 class="card-title mb-3">
+          {% if process == "connect" %}
+            {{ provider.name }} 계정 연결
+          {% else %}
+            {{ provider.name }} 계정으로 로그인
+          {% endif %}
+        </h4>
+
+        <p class="text-muted mb-4">
+          {% if process == "connect" %}
+            새로운 {{ provider.name }} 계정을 연결하려고 합니다.
+          {% else %}
+            {{ provider.name }} 계정을 사용해 로그인을 진행하려 합니다.
+          {% endif %}
+        </p>
+
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary w-100">계속</button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
