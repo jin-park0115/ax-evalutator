@@ -1,10 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings  # 1. settings 추가
 
 
 class Student(models.Model):
     user = models.OneToOneField(
-        User,
+        settings.AUTH_USER_MODEL,  # 2. User -> settings.AUTH_USER_MODEL 변경
         on_delete=models.CASCADE,
         null=True,
         blank=True,

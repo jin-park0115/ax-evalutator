@@ -1,67 +1,34 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.admin.views.decorators import staff_member_required
+from apps.evaluations.models import EvaluationRound
 
 
 # =========================================================
-# 회차 관리
+# 회차 관리 (실 DB 연동 완료)
 # URL: /tutor/rounds/
 # =========================================================
+@staff_member_required
 def round_list(request):
-    rounds = [
-        {
-            "id": 1,
-            "title": "1차 팀 평가",
-            "assignment": "Django 프로젝트",
-            "start_date": "2026-08-14",
-            "end_date": "2026-08-18",
-            "team_count": 5,
-            "status": "대기",
-        },
-        {
-            "id": 2,
-            "title": "2차 팀 평가",
-            "assignment": "AI 프로젝트",
-            "start_date": "2026-08-20",
-            "end_date": "2026-08-25",
-            "team_count": 6,
-            "status": "진행중",
-        },
-        {
-            "id": 3,
-            "title": "3차 팀 평가",
-            "assignment": "최종 프로젝트",
-            "start_date": "2026-08-28",
-            "end_date": "2026-09-01",
-            "team_count": 5,
-            "status": "완료",
-        },
-    ]
-
     # 회차 생성
     if request.method == "POST":
-        title = request.POST.get("title")
-        assignment = request.POST.get("assignment")
-        start_date = request.POST.get("start_date")
-        end_date = request.POST.get("end_date")
-        team_count = request.POST.get("team_count")
+        title = request.POST.get("title") or request.POST.get("name")
+        start_date = request.POST.get("start_date") or request.POST.get("start_at")
+        end_date = request.POST.get("end_date") or request.POST.get("end_at")
+        student_weight = request.POST.get("student_weight", 0.5)
+        tutor_weight = request.POST.get("tutor_weight", 0.5)
 
-        if (
-            title
-            and assignment
-            and start_date
-            and end_date
-            and team_count
-        ):
-            new_round = {
-                "id": len(rounds) + 1,
-                "title": title,
-                "assignment": assignment,
-                "start_date": start_date,
-                "end_date": end_date,
-                "team_count": int(team_count),
-                "status": "대기",
-            }
+        if title and start_date and end_date:
+            EvaluationRound.objects.create(
+                name=title,
+                start_at=start_date,
+                end_at=end_date,
+                student_weight=float(student_weight),
+                tutor_weight=float(tutor_weight),
+            )
+            return redirect("tutor_rounds")
 
-            rounds.append(new_round)
+    # DB에서 전체 회차 조회
+    rounds = EvaluationRound.objects.all().order_by("-id")
 
     return render(
         request,
@@ -73,7 +40,35 @@ def round_list(request):
 
 
 # =========================================================
-# 팀 편성
+# 회차 상태 변경 및 공개 설정 (추가)
+# =========================================================
+@staff_member_required
+def update_round_status(request, round_id):
+    """회차 상태 변경 (draft -> in_progress -> finished 등)"""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        new_status = request.POST.get("status")
+
+        if new_status in EvaluationRound.Status.values:
+            round_obj.status = new_status
+            round_obj.save()
+
+    return redirect("tutor_rounds")
+
+
+@staff_member_required
+def toggle_team_first_rank(request, round_id):
+    """팀 1위 공개 여부 변경 (컨펌)"""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        round_obj.team_first_rank_visible = not round_obj.team_first_rank_visible
+        round_obj.save()
+
+    return redirect("tutor_rounds")
+
+
+# =========================================================
+# 팀 편성 (다른 팀원 목업 유지)
 # URL: /tutor/team-build/
 # =========================================================
 def team_build(request):
@@ -132,7 +127,7 @@ def team_build(request):
 
 
 # =========================================================
-# 팀 평가
+# 팀 평가 (다른 팀원 목업 유지)
 # URL: /tutor/team-evaluation/
 # =========================================================
 def team_evaluation(request):
@@ -170,7 +165,7 @@ def team_evaluation(request):
 
 
 # =========================================================
-# 개인 평가
+# 개인 평가 (다른 팀원 목업 유지)
 # URL: /tutor/individual-evaluation/
 # =========================================================
 def individual_evaluation(request):
@@ -223,7 +218,7 @@ def individual_evaluation(request):
 
 
 # =========================================================
-# 템플릿 관리
+# 템플릿 관리 (다른 팀원 목업 유지)
 # URL: /tutor/templates/
 # =========================================================
 def template_list(request):
@@ -261,7 +256,7 @@ def template_list(request):
 
 
 # =========================================================
-# 공개 설정
+# 공개 설정 (다른 팀원 목업 유지)
 # URL: /tutor/settings/
 # =========================================================
 def tutor_settings(request):
@@ -282,7 +277,7 @@ def tutor_settings(request):
 
 
 # =========================================================
-# 평가 현황
+# 평가 현황 (다른 팀원 목업 유지)
 # URL: /tutor/evaluation-status/
 # =========================================================
 def evaluation_status(request):
