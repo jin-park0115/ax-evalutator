@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
-from apps.evaluations.models import EvaluationRound
+from apps.evaluations.models import EvaluationRound, EvaluationTemplate
 
 
 # =========================================================
@@ -68,60 +68,49 @@ def toggle_team_first_rank(request, round_id):
 
 
 # =========================================================
-# 팀 편성 (다른 팀원 목업 유지)
+# 팀 편성 (실 DB 연동 — apps/teams의 실제 API와 연결)
 # URL: /tutor/team-build/
 # =========================================================
+@staff_member_required
 def team_build(request):
-    print("team_build 호출됨")
-    print("요청 방식:", request.method)
-    print("POST 데이터:", request.POST)
+    from apps.teams.models import Team, TeamMember
 
-    if request.method == "POST":
-        if "auto_assign" in request.POST:
-            print("자동 편성 실행!")
+    round_id = request.GET.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
 
-    teams = [
-        {
-            "team_no": 1,
-            "avg_seed": 82.4,
-            "members": [
-                {"name": "김철수", "team_no": 1},
-                {"name": "이영희", "team_no": 1},
-            ],
-        },
-        {
-            "team_no": 2,
-            "avg_seed": 81.9,
-            "members": [
-                {"name": "박민수", "team_no": 2},
-                {"name": "최지우", "team_no": 2},
-            ],
-        },
-        {
-            "team_no": 3,
-            "avg_seed": 80.7,
-            "members": [
-                {"name": "정수빈", "team_no": 3},
-                {"name": "한지민", "team_no": 3},
-            ],
-        },
-    ]
+    teams = []
+    if round_obj:
+        teams = (
+            Team.objects.filter(round=round_obj)
+            .prefetch_related("members__student")
+            .order_by("id")
+        )
 
-    students = [
-        {"name": "김철수", "team_no": 1},
-        {"name": "이영희", "team_no": 1},
-        {"name": "박민수", "team_no": 2},
-        {"name": "최지우", "team_no": 2},
-        {"name": "정수빈", "team_no": 3},
-        {"name": "한지민", "team_no": 3},
-    ]
+    assigned_ids = set()
+    if round_obj:
+        assigned_ids = set(
+            TeamMember.objects.filter(team__round=round_obj).values_list(
+                "student_id", flat=True
+            )
+        )
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    unassigned_students = User.objects.filter(role=User.Role.STUDENT).exclude(
+        id__in=assigned_ids
+    )
 
     return render(
         request,
         "tutor/team_build.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "teams": teams,
-            "students": students,
+            "unassigned_students": unassigned_students,
         },
     )
 
@@ -218,34 +207,12 @@ def individual_evaluation(request):
 
 
 # =========================================================
-# 템플릿 관리 (다른 팀원 목업 유지)
+# 템플릿 관리 (실 DB 연동 — EvaluationTemplate.criteria)
 # URL: /tutor/templates/
 # =========================================================
+@staff_member_required
 def template_list(request):
-    templates = [
-        {
-            "id": 1,
-            "name": "기본 팀 평가 템플릿",
-            "type": "팀 평가",
-            "question_count": 5,
-            "status": "사용중",
-        },
-        {
-            "id": 2,
-            "name": "기본 개인 평가 템플릿",
-            "type": "개인 평가",
-            "question_count": 6,
-            "status": "사용중",
-        },
-        {
-            "id": 3,
-            "name": "최종 프로젝트 평가",
-            "type": "팀 평가",
-            "question_count": 8,
-            "status": "보관",
-        },
-    ]
-
+    templates = EvaluationTemplate.objects.select_related("round").order_by("-id")
     return render(
         request,
         "tutor/templates.html",
@@ -255,46 +222,141 @@ def template_list(request):
     )
 
 
-# =========================================================
-# 공개 설정 (다른 팀원 목업 유지)
-# URL: /tutor/settings/
-# =========================================================
-def tutor_settings(request):
-    settings = {
-        "evaluation_open": True,
-        "result_open": False,
-        "student_visible": True,
-        "anonymous": False,
-    }
+@staff_member_required
+def template_create(request):
+    if request.method == "POST":
+        round_id = request.POST.get("round_id")
+        template_type = request.POST.get("type")
+        keys = request.POST.getlist("item_key")
+        texts = request.POST.getlist("item_text")
 
+        criteria = [
+            {"key": key, "text": text}
+            for key, text in zip(keys, texts)
+            if key and text
+        ]
+
+        if round_id and template_type and criteria:
+            EvaluationTemplate.objects.update_or_create(
+                round_id=round_id,
+                type=template_type,
+                defaults={"criteria": criteria},
+            )
+            return redirect("tutor_templates")
+
+    rounds = EvaluationRound.objects.order_by("-id")
     return render(
         request,
-        "tutor/settings.html",
+        "tutor/template_form.html",
         {
-            "settings": settings,
+            "rounds": rounds,
+            "types": EvaluationTemplate.TemplateType.choices,
         },
     )
 
 
 # =========================================================
-# 평가 현황 (다른 팀원 목업 유지)
+# 공개 설정 (실 DB 연동 — EvaluationRound의 4개 visible 필드)
+# URL: /tutor/settings/
+# =========================================================
+@staff_member_required
+def tutor_settings(request):
+    round_id = request.GET.get("round_id") or request.POST.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
+
+    if request.method == "POST" and round_obj:
+        round_obj.team_first_rank_visible = "team_first_rank_visible" in request.POST
+        round_obj.team_rank_visible = "team_rank_visible" in request.POST
+        round_obj.individual_score_visible = "individual_score_visible" in request.POST
+        round_obj.individual_rank_visible = "individual_rank_visible" in request.POST
+        round_obj.save()
+        return redirect(f"/tutor/settings/?round_id={round_obj.id}")
+
+    return render(
+        request,
+        "tutor/settings.html",
+        {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
+        },
+    )
+
+
+# =========================================================
+# 평가 현황 (실 DB 연동 — 제출률/미제출자)
 # URL: /tutor/evaluation-status/
 # =========================================================
+@staff_member_required
 def evaluation_status(request):
-    status = {
-        "total_students": 6,
-        "completed_students": 4,
-        "remaining_students": 2,
-        "completion_rate": 66,
-        "total_teams": 3,
-        "completed_teams": 2,
-        "remaining_teams": 1,
-    }
+    from apps.teams.models import Team, TeamMember
+    from apps.evaluations.models import IndividualEvaluation, TeamEvaluation
+
+    round_id = request.GET.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
+
+    status = None
+    non_submitters = []
+
+    if round_obj:
+        members = (
+            TeamMember.objects.filter(team__round=round_obj)
+            .select_related("student", "team")
+            .order_by("student__username")
+        )
+        total_students = members.count()
+
+        # 개인 상호평가는 팀원 전원을 한 번에 제출하는 구조라
+        # is_final=True 레코드가 하나라도 있으면 그 학생은 제출 완료로 본다
+        submitted_ids = set(
+            IndividualEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("evaluator_id", flat=True)
+        )
+        completed_students = len({m.student_id for m in members if m.student_id in submitted_ids})
+        remaining_students = total_students - completed_students
+        completion_rate = (
+            round(completed_students / total_students * 100) if total_students else 0
+        )
+
+        non_submitters = [m.student for m in members if m.student_id not in submitted_ids]
+
+        teams = Team.objects.filter(round=round_obj)
+        total_teams = teams.count()
+        completed_teams = 0
+        for team in teams:
+            evaluators_count = (
+                TeamEvaluation.objects.filter(round=round_obj, target_team=team)
+                .values("evaluator_team")
+                .distinct()
+                .count()
+            )
+            if total_teams > 1 and evaluators_count >= total_teams - 1:
+                completed_teams += 1
+        remaining_teams = total_teams - completed_teams
+
+        status = {
+            "total_students": total_students,
+            "completed_students": completed_students,
+            "remaining_students": remaining_students,
+            "completion_rate": completion_rate,
+            "total_teams": total_teams,
+            "completed_teams": completed_teams,
+            "remaining_teams": remaining_teams,
+        }
 
     return render(
         request,
         "tutor/evaluation_status.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "status": status,
+            "non_submitters": non_submitters,
         },
     )
