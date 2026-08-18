@@ -102,6 +102,21 @@ def toggle_team_first_rank(request, round_id):
 
 
 # =========================================================
+# 팀 편성 확정 기능 (추가됨)
+# =========================================================
+@staff_member_required
+def team_confirm(request, round_id):
+    """팀 편성 확정 버튼 클릭 시 회차 상태를 CONFIRMED로 변경"""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        round_obj.status = EvaluationRound.Status.CONFIRMED
+        round_obj.save()
+        messages.success(request, f"[{round_obj.name}] 팀 편성이 확정되었습니다.")
+
+    return redirect(f"/tutor/team-build/?round_id={round_id}")
+
+
+# =========================================================
 # 점수 집계 (BE2 calculate_round 호출)
 # URL: /tutor/rounds/<round_id>/calculate/
 # =========================================================
