@@ -510,6 +510,25 @@ def template_create(request):
             )
             return redirect("tutor_templates")
 
+    default_items = {
+        "TEAM": [
+            {"key": "quality", "text": "결과물 완성도"},
+            {"key": "contribution", "text": "팀 기여도"},
+            {"key": "cooperation", "text": "협업 및 소통"},
+            {"key": "presentation", "text": "발표 및 전달력"},
+        ],
+        "INDIVIDUAL": [
+            {"key": "attitude", "text": "참여 태도 및 성실성"},
+            {"key": "task_completion", "text": "맡은 역할 수행도"},
+            {"key": "communication", "text": "팀원 간 커뮤니케이션"},
+        ],
+        "TUTOR": [
+            {"key": "understanding", "text": "주제 이해도 및 기술성"},
+            {"key": "output", "text": "최종 결과물 우수성"},
+            {"key": "growth", "text": "프로젝트 발전 가능성"},
+        ],
+    }
+
     rounds = EvaluationRound.objects.order_by("-id")
     return render(
         request,
@@ -517,6 +536,7 @@ def template_create(request):
         {
             "rounds": rounds,
             "types": EvaluationTemplate.TemplateType.choices,
+            "default_items": default_items,
         },
     )
 
