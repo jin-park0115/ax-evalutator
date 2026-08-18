@@ -11,7 +11,12 @@ User = get_user_model()
 
 @login_required
 def student_home(request):
-    from apps.evaluations.models import EvaluationRound
+    from apps.evaluations.models import (
+        EvaluationRound,
+        IndividualEvaluation,
+        ScoreResult,
+        TeamEvaluation,
+    )
 
     round_obj = (
         EvaluationRound.objects
@@ -20,10 +25,23 @@ def student_home(request):
         .first()
     )
 
-    if round_obj:
-        state = "open"
-    else:
+    if not round_obj:
         state = "before"
+    else:
+        finalized = (
+            TeamEvaluation.objects.filter(
+                round=round_obj, submitted_by=request.user, is_final=True
+            ).exists()
+            or IndividualEvaluation.objects.filter(
+                round=round_obj, evaluator=request.user, is_final=True
+            ).exists()
+        )
+        if not finalized:
+            state = "open"
+        elif ScoreResult.objects.filter(round=round_obj, user=request.user).exists():
+            state = "published"
+        else:
+            state = "done"
 
     team, members = get_my_team(request.user)
 
