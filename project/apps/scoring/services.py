@@ -1,10 +1,11 @@
+from django.db import transaction
 from apps.evaluations.models import (
     IndividualEvaluation,
     TeamEvaluation,
     TutorEvaluation,
     ScoreResult,
 )
-from apps.teams.models import TeamMember, TeamUserScoreSeed
+from apps.teams.models import Team, TeamMember, TeamUserScoreSeed
 
 
 def calculate_seed_scores(
@@ -93,28 +94,62 @@ def calculate_rankings(
 
 
 def calculate_team_rankings(
-    team_scores: dict[int, float],
-    team_names: dict[int, str],
-) -> list[tuple[int, float, int]]:
+    team_scores_or_round,
+    team_names: dict[int, str] | None = None,
+):
     """
     팀별 점수를 받아 팀 순위를 계산한다.
-
-    점수가 높은 팀이 높은 순위를 가진다.
-    같은 점수인 팀은 같은 순위를 사용한다.
-    동점일 경우 팀 이름을 보조 정렬 기준으로 사용한다.
-
-    반환값:
-        [
-            (team_id, team_score, rank),
-            ...
-        ]
+    dict 인자 또는 round 객체/ID를 넘겨받아도 처리 가능하도록 호환성 제공.
     """
+    # 1. Round 객체나 round_id가 들어온 경우 DB에서 즉시 조회하여 계산 (dict 형태 리스트 반환)
+    if not isinstance(team_scores_or_round, dict):
+        round_obj = team_scores_or_round
+        round_id = round_obj.id if hasattr(round_obj, 'id') else round_obj
+        
+        teams = Team.objects.filter(round_id=round_id)
+        team_scores = {}
+        team_names_dict = {}
+        
+        for team in teams:
+            score = get_team_score_from_db(round_id, team.id)
+            if score is not None:
+                team_scores[team.id] = score
+                team_names_dict[team.id] = team.name
+
+        if not team_scores:
+            return []
+
+        sorted_team_ids = sorted(
+            team_scores.keys(),
+            key=lambda t_id: (-team_scores[t_id], team_names_dict[t_id]),
+        )
+
+        rankings = []
+        for index, t_id in enumerate(sorted_team_ids):
+            score = team_scores[t_id]
+            if index > 0 and score == team_scores[sorted_team_ids[index - 1]]:
+                rank = rankings[index - 1]["rank"]
+            else:
+                rank = index + 1
+
+            rankings.append({
+                "team_id": t_id,
+                "team_name": team_names_dict[t_id],
+                "score": score,
+                "rank": rank,
+            })
+        return rankings
+
+    # 2. 기존 방식 (dict, dict 인자로 전달받은 경우: (team_id, score, rank) 튜플 리스트 반환)
+    team_scores = team_scores_or_round
+    if team_names is None:
+        team_names = {}
 
     sorted_team_ids = sorted(
         team_scores.keys(),
         key=lambda team_id: (
             -team_scores[team_id],
-            team_names[team_id],
+            team_names.get(team_id, ""),
         ),
     )
 
@@ -384,6 +419,7 @@ def calculate_student_result(
     }
 
 
+@transaction.atomic
 def calculate_round(round) -> list[dict]:
     """
     특정 평가 회차의 모든 학생 점수를 계산하고
@@ -479,6 +515,7 @@ def calculate_round(round) -> list[dict]:
     return saved_results
 
 
+@transaction.atomic
 def save_cumulative_seeds(round_id: int) -> dict[int, float]:
     """
     종료된 평가 회차의 최종 점수를 기준으로
@@ -545,8 +582,7 @@ def get_cumulative_seed(
 ) -> float | None:
     """
     특정 학생의 특정 평가 회차 누적 시드를 조회한다.
-
-    저장된 시드가 없으면 None을 반환한다.
+    해당 회차에 직접 저장된 시드가 없으면 가장 최근 누적 시드를 조회한다.
     """
 
     seed = (
@@ -561,5 +597,20 @@ def get_cumulative_seed(
         )
         .first()
     )
+
+    if seed is None:
+        seed = (
+            TeamUserScoreSeed.objects
+            .filter(
+                user_id=user_id,
+                round_id__lte=round_id,
+            )
+            .order_by("-round_id")
+            .values_list(
+                "cumulative_seed",
+                flat=True,
+            )
+            .first()
+        )
 
     return seed

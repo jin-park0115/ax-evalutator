@@ -14,8 +14,8 @@
 # - 학생이 "최종 제출"을 누르는 순간 그 학생의 해당 회차 답변 전체가
 #   한 번에 is_final=True로 잠긴다. 그 전까지는 팀별 개별 제출/잠금이 없다.
 
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -170,9 +170,6 @@ def team_evaluation_form(request, team_id):
             scores = list(answers.values())
             avg_score = sum(scores) / len(scores)
 
-            # [수정] update_or_create 직접 호출 → services.save_team_evaluation로 교체.
-            # 이 함수 안에서 자기 팀 여부·발표 오픈 여부·점수 범위·최종 제출 여부를
-            # 다시 한 번 검증하고, 기존 임시저장이 있으면 갱신, 없으면 새로 만든다.
             try:
                 services.save_team_evaluation(
                     round_id=round_obj.id,
@@ -252,8 +249,11 @@ def peer_evaluation_form(request):
             messages.error(request, "이미 최종 제출을 완료해 수정할 수 없습니다.")
             return redirect("eval_peer_form")
 
+        if not my_team:
+            messages.error(request, "소속된 팀이 없어 개인 평가를 진행할 수 없습니다.")
+            return redirect("eval_peer_form")
+
         # 1단계 — 먼저 팀원 전원의 답변을 걷어서 문항 누락만 검증한다.
-        # (기존 로직 그대로: 이 단계에서 걸리면 아직 아무것도 저장하지 않은 상태)
         member_answers = {}
         for member in members:
             answers = {}
@@ -279,11 +279,7 @@ def peer_evaluation_form(request):
                 )
             member_answers[member] = answers
 
-        # 2단계 — [수정] 문항 누락이 없으면 실제 저장.
-        # update_or_create 직접 호출 → services.save_individual_evaluation로 교체.
-        # 전체를 transaction.atomic()으로 묶어서, 팀원 중 한 명이라도 서비스
-        # 검증(같은 팀 여부 등)에 걸리면 이미 저장된 다른 팀원 분까지 전부
-        # 롤백되어 부분 저장이 남지 않는다.
+        # 2단계 — 문항 누락이 없으면 실제 저장.
         try:
             with transaction.atomic():
                 for member, answers in member_answers.items():
@@ -333,15 +329,56 @@ def peer_evaluation_form(request):
 @login_required
 def submit_final(request):
     """submit_final(user, round) 계약
-    — 이 학생이 임시저장해둔 TeamEvaluation/IndividualEvaluation 전체를
-      한 번에 is_final=True로 잠근다. 이후 수정 불가."""
+    — 평가 완결성 검증 후, 학생이 임시저장해둔 TeamEvaluation/IndividualEvaluation 
+      전체를 한 번에 is_final=True로 잠근다."""
     round_obj = _current_round()
+    if not round_obj:
+        messages.error(request, "현재 진행 중인 평가 회차가 없습니다.")
+        return redirect("eval_team_list")
 
     if request.method == "POST":
+        # 1. 이미 최종 제출을 완료했는지 가드
         if _has_finalized(request.user, round_obj):
             messages.error(request, "이미 최종 제출을 완료했습니다.")
             return redirect("eval_team_list")
 
+        my_team = _get_my_team(request.user, round_obj)
+
+        # 2. 필수 팀 평가 작성 여부 검증 (오픈된 팀 중 내 팀을 제외한 모든 팀)
+        open_teams = Team.objects.filter(
+            round=round_obj, eval_opened_at__isnull=False
+        )
+        if my_team:
+            open_teams = open_teams.exclude(id=my_team.id)
+
+        saved_team_ids = set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, submitted_by=request.user
+            ).values_list("target_team_id", flat=True)
+        )
+        required_team_ids = set(open_teams.values_list("id", flat=True))
+
+        missing_teams = required_team_ids - saved_team_ids
+        if missing_teams:
+            messages.error(request, "아직 작성하지 않은 팀 평가가 있습니다. 모든 팀 평가를 완료해 주세요.")
+            return redirect("eval_team_list")
+
+        # 3. 필수 개인 상호평가 작성 여부 검증 (본인 팀 팀원 전원)
+        if my_team:
+            team_members = TeamMember.objects.filter(team=my_team).exclude(student=request.user)
+            saved_member_ids = set(
+                IndividualEvaluation.objects.filter(
+                    round=round_obj, evaluator=request.user
+                ).values_list("target_id", flat=True)
+            )
+            required_member_ids = set(team_members.values_list("student_id", flat=True))
+
+            missing_members = required_member_ids - saved_member_ids
+            if missing_members:
+                messages.error(request, "아직 작성하지 않은 팀원 개인 평가가 있습니다. 모든 팀원 평가를 완료해 주세요.")
+                return redirect("eval_peer_form")
+
+        # 4. 검증 통과 시 트랜잭션 내에서 최종 제출(is_final=True) 처리
         with transaction.atomic():
             TeamEvaluation.objects.filter(
                 round=round_obj, submitted_by=request.user
