@@ -736,10 +736,18 @@ def evaluation_status(request):
         )
         total_students = members.count()
 
+        # 최종 제출(BR-11)은 그 시점의 팀 평가/개인 평가를 함께 잠그지만,
+        # 학생에 따라 둘 중 하나만 존재할 수 있다(팀 평가만 했거나 개인 평가만
+        # 했거나). 팀 평가 또는 개인 평가 중 하나라도 is_final=True면
+        # 그 학생은 제출 완료로 본다.
         submitted_ids = set(
             IndividualEvaluation.objects.filter(
                 round=round_obj, is_final=True
             ).values_list("evaluator_id", flat=True)
+        ) | set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("submitted_by_id", flat=True)
         )
         completed_students = len({m.student_id for m in members if m.student_id in submitted_ids})
         remaining_students = total_students - completed_students
