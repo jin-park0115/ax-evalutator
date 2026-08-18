@@ -209,6 +209,14 @@ def team_build(request):
     else:
         round_obj = EvaluationRound.objects.order_by("-id").first()
 
+    # 종료된 이전 회차에 점수 결과가 있는지 — 시드 구간 설정 슬라이더 노출 여부
+    from apps.evaluations.models import ScoreResult
+    has_score_history = False
+    if round_obj:
+        has_score_history = ScoreResult.objects.filter(
+            round__status="finished", round_id__lt=round_obj.id
+        ).exists()
+
     teams = []
     if round_obj:
         teams = (
@@ -240,6 +248,7 @@ def team_build(request):
             "teams": teams,
             "unassigned_students": unassigned_students,
             "round_editable": is_round_editable(round_obj) if round_obj else False,
+            "has_score_history": has_score_history,
         },
     )
 

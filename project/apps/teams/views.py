@@ -1,6 +1,6 @@
 import json
 import random
-from django.shortcuts import get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.db import transaction
 from django.contrib.admin.views.decorators import staff_member_required
@@ -36,9 +36,6 @@ def calculate_optimal_team_count(total_students):
 
 
 def is_round_editable(target_round):
-    # EvaluationRound.Status 값은 소문자("draft","ready","in_progress","finished")인데
-    # 대문자 목록과 비교하고 있어서 항상 False가 나오던 버그 수정
-    #
     # [수정] 원래는 READY(편성 확정 후)도 편집 가능 목록에 있었는데,
     # "편성 확정" 버튼 자체의 확인창은 "확정하면 더 이상 수정할 수
     # 없습니다"라고 안내하면서 실제로는 계속 수정 가능했던 모순이
@@ -46,6 +43,52 @@ def is_round_editable(target_round):
     # "수정"을 눌러 draft로 되돌려야 편집 가능하도록 변경.
     editable_statuses = [EvaluationRound.Status.DRAFT]
     return getattr(target_round, "status", EvaluationRound.Status.DRAFT) in editable_statuses
+
+
+@staff_member_required
+@require_http_methods(["GET"])
+def team_build_view(request):
+    """팀 편성 메인 페이지 렌더링 뷰"""
+    round_id = request.GET.get("round_id")
+    rounds = EvaluationRound.objects.all().order_by("id")
+
+    if round_id:
+        target_round = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        target_round = rounds.last()
+
+    # 종료된 이전 회차의 점수 결과(ScoreResult) 존재 여부 확인
+    has_score_history = False
+    if target_round:
+        has_score_history = ScoreResult.objects.filter(
+            round__status="finished",
+            round_id__lt=target_round.id
+        ).exists()
+
+    teams = []
+    unassigned_students = []
+    
+    if target_round:
+        teams = Team.objects.filter(round=target_round).prefetch_related("members__student")
+        
+        assigned_student_ids = TeamMember.objects.filter(
+            team__round=target_round
+        ).values_list("student_id", flat=True)
+
+        unassigned_students = User.objects.filter(
+            role=User.Role.STUDENT, 
+            is_active=True
+        ).exclude(id__in=assigned_student_ids)
+
+    context = {
+        "rounds": rounds,
+        "round": target_round,
+        "round_editable": is_round_editable(target_round) if target_round else False,
+        "has_score_history": has_score_history,  # 템플릿 제어용 변수
+        "teams": teams,
+        "unassigned_students": unassigned_students,
+    }
+    return render(request, "teams/team_build.html", context)
 
 
 @require_http_methods(["GET"])
@@ -182,7 +225,7 @@ def get_percentile_preview(request):
     round_id = data.get("round_id")
     thresholds = data.get("thresholds", [30.0, 60.0])
     excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
-    window = data.get("window") or None  # None=전체 누적, 1/3/5=직전 N회차 평균
+    window = data.get("window") or None
 
     groups = get_students_by_percentiles(
         target_round_id=round_id,
@@ -207,7 +250,7 @@ def auto_assign_teams(request):
     thresholds = data.get("thresholds", [30.0, 60.0])
     fixed_student_ids = [int(sid) for sid in data.get("fixed_student_ids", [])]
     excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
-    window = data.get("window") or None  # None=전체 누적, 1/3/5=직전 N회차 평균
+    window = data.get("window") or None
 
     if not round_id:
         return JsonResponse({"error": "round_id는 필수입니다."}, status=400)
@@ -220,10 +263,6 @@ def auto_assign_teams(request):
             status=400,
         )
 
-    # 이전(종료된) 회차에 점수 계산 결과가 있는지 확인.
-    # 원래는 TeamUserScoreSeed 존재 여부로 판단했는데, 그 테이블을 채우는
-    # 코드가 없어 항상 비어 있었다 — 실제 데이터가 쌓이는 ScoreResult
-    # 기준으로 바꿨다 (get_student_seed_scores와 동일한 데이터 소스).
     has_score_history = ScoreResult.objects.filter(
         round__status="finished", round_id__lt=target_round.id
     ).exists()
@@ -307,6 +346,7 @@ def auto_assign_teams(request):
         status=200,
     )
 
+
 @staff_member_required
 @require_http_methods(["POST"])
 def confirm_team_assignment(request):
@@ -333,8 +373,6 @@ def confirm_team_assignment(request):
         return JsonResponse({"error": "생성된 팀이 없습니다. 최소 1개 이상의 팀을 편성해주세요."}, status=400)
 
     with transaction.atomic():
-        # EvaluationRound 모델에 정의된 올바른 Status 값(READY)을 지정합니다.
-        # 즉시 평가를 진행하는 시스템이면 EvaluationRound.Status.IN_PROGRESS 로 변경하세요.
         target_round.status = getattr(EvaluationRound.Status, "READY", "READY")
         target_round.save()
 
