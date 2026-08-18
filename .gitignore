@@ -54,6 +54,9 @@ pgdata/
 *.swo
 .DS_Store
 
+# ===== Claude Code (로컬 미리보기 실행 설정, 개인 PC 경로 포함) =====
+.claude/
+
 # ===== Test / Coverage =====
 .pytest_cache/
 .coverage
