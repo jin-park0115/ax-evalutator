@@ -1,3 +1,4 @@
+from django.db import transaction
 from apps.evaluations.models import (
     IndividualEvaluation,
     TeamEvaluation,
@@ -161,13 +162,16 @@ def calculate_team_rankings(
             index > 0
             and score == team_scores[sorted_team_ids[index - 1]]
         ):
-            rank = rankings[index - 1][2]
+            rank = rankings[index - 1]["rank"]
         else:
             rank = index + 1
 
-        rankings.append(
-            (team_id, score, rank)
-        )
+        rankings.append({
+            "team_id": team_id,
+            "team_name": team_names.get(team_id, f"팀 {team_id}"),
+            "score": score,
+            "rank": rank,
+        })
 
     return rankings
 
@@ -418,6 +422,7 @@ def calculate_student_result(
     }
 
 
+@transaction.atomic
 def calculate_round(round) -> list[dict]:
     """
     특정 평가 회차의 모든 학생 점수를 계산하고
@@ -513,6 +518,7 @@ def calculate_round(round) -> list[dict]:
     return saved_results
 
 
+@transaction.atomic
 def save_cumulative_seeds(round_id: int) -> dict[int, float]:
     """
     종료된 평가 회차의 최종 점수를 기준으로
@@ -579,8 +585,7 @@ def get_cumulative_seed(
 ) -> float | None:
     """
     특정 학생의 특정 평가 회차 누적 시드를 조회한다.
-
-    저장된 시드가 없으면 None을 반환한다.
+    해당 회차에 직접 저장된 시드가 없으면 가장 최근 누적 시드를 조회한다.
     """
 
     seed = (
@@ -595,5 +600,20 @@ def get_cumulative_seed(
         )
         .first()
     )
+
+    if seed is None:
+        seed = (
+            TeamUserScoreSeed.objects
+            .filter(
+                user_id=user_id,
+                round_id__lte=round_id,
+            )
+            .order_by("-round_id")
+            .values_list(
+                "cumulative_seed",
+                flat=True,
+            )
+            .first()
+        )
 
     return seed
