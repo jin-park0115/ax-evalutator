@@ -113,7 +113,7 @@
 <div class="alert alert-warning mb-3" id="statusAlert">
     현재 상태: <strong>{{ round.get_status_display }}</strong>
     {% if not round_editable %}
-    <span class="ms-2 text-danger">(확정/진행 중인 회차는 팀 변경이 불가능합니다)</span>
+    <span class="ms-2 text-danger">(평가(발표)가 시작된 회차는 팀 변경이 불가능합니다)</span>
     {% endif %}
 </div>
 

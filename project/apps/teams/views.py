@@ -36,13 +36,20 @@ def calculate_optimal_team_count(total_students):
 
 
 def is_round_editable(target_round):
-    # [수정] 원래는 READY(편성 확정 후)도 편집 가능 목록에 있었는데,
-    # "편성 확정" 버튼 자체의 확인창은 "확정하면 더 이상 수정할 수
-    # 없습니다"라고 안내하면서 실제로는 계속 수정 가능했던 모순이
-    # 있었다. 확정(READY) 후에는 잠기고, 다시 열려면 명시적으로
-    # "수정"을 눌러 draft로 되돌려야 편집 가능하도록 변경.
-    editable_statuses = [EvaluationRound.Status.DRAFT]
-    return getattr(target_round, "status", EvaluationRound.Status.DRAFT) in editable_statuses
+    # [수정] "편성 확정"은 이제 회차를 바로 진행 중(IN_PROGRESS)으로
+    # 넘기지만, 팀 편성 자체는 실제로 평가(발표)가 시작되기 전까지는
+    # 계속 수정 가능해야 한다. 그래서 상태만으로 편집 가능 여부를
+    # 판단하지 않고, 이 회차의 팀 중 하나라도 발표(평가)가 열렸는지로
+    # 판단한다 — 평가가 시작된 뒤에는 팀 구성을 바꾸면 이미 진행 중인
+    # 평가 데이터와 어긋나므로 잠근다.
+    status = getattr(target_round, "status", EvaluationRound.Status.DRAFT)
+    if status == EvaluationRound.Status.DRAFT:
+        return True
+    if status in (EvaluationRound.Status.READY, EvaluationRound.Status.IN_PROGRESS):
+        return not Team.objects.filter(
+            round=target_round, eval_opened_at__isnull=False
+        ).exists()
+    return False
 
 
 @staff_member_required
@@ -373,12 +380,15 @@ def confirm_team_assignment(request):
         return JsonResponse({"error": "생성된 팀이 없습니다. 최소 1개 이상의 팀을 편성해주세요."}, status=400)
 
     with transaction.atomic():
-        target_round.status = getattr(EvaluationRound.Status, "READY", "READY")
+        # 확정 즉시 진행 중 상태로 전환한다 (대기 단계는 두지 않음).
+        # 팀 구성은 실제로 발표/평가가 시작되기 전까지 계속 수정 가능
+        # (is_round_editable 참고).
+        target_round.status = EvaluationRound.Status.IN_PROGRESS
         target_round.save()
 
     return JsonResponse(
         {
-            "message": f"{target_round.id}회차 팀 편성이 확정되었습니다.",
+            "message": f"{target_round.id}회차 팀 편성이 확정되어 진행 중 상태로 전환되었습니다.",
             "round_id": target_round.id,
             "status": target_round.status,
         },
