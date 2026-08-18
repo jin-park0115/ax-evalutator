@@ -13,6 +13,9 @@ User = get_user_model()
 
 # 홈 화면
 def home(request):
+    if request.user.is_authenticated and not request.user.is_staff:
+        from apps.students.views import student_home
+        return student_home(request)
     return render(request, "home.html")
 
 

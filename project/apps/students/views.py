@@ -11,6 +11,7 @@ User = get_user_model()
 
 @login_required
 def student_home(request):
+    from apps.evaluations import services
     from apps.evaluations.models import (
         EvaluationRound,
         IndividualEvaluation,
@@ -25,6 +26,8 @@ def student_home(request):
         .first()
     )
 
+    progress = None
+
     if not round_obj:
         state = "before"
     else:
@@ -38,6 +41,9 @@ def student_home(request):
         )
         if not finalized:
             state = "open"
+            # 팀 평가/팀원 평가를 각각 몇 명이나 채웠는지 — 홈 화면 배지와
+            # "최종 제출" 버튼 노출 여부(둘 다 다 채웠을 때만) 판단에 쓴다.
+            progress = services.get_evaluation_progress(request.user, round_obj)
         elif ScoreResult.objects.filter(round=round_obj, user=request.user).exists():
             state = "published"
         else:
@@ -51,6 +57,7 @@ def student_home(request):
         {
             "state": state,
             "team": team,
+            "progress": progress,
         },
     )
 

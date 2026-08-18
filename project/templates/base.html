@@ -146,9 +146,23 @@
       font-weight: 800;
       letter-spacing: -0.3px;
     }
+
+    /* 페이지 전환 진행바 — 링크/폼 제출로 다음 페이지를 요청하는 동안
+       화면 최상단에 얇게 차오르며 "지금 로딩 중"임을 알려줌 */
+    #page-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 0;
+      background-color: #4E75F8;
+      z-index: 2000;
+      transition: width 0.3s ease-out;
+    }
   </style>
 </head>
 <body>
+  <div id="page-progress-bar"></div>
   <nav class="navbar navbar-expand-lg border-bottom">
     <div class="container d-flex justify-content-between align-items-center">
       <a class="navbar-brand fw-semibold mb-0" href="/">AX Evaluator</a>
@@ -162,8 +176,8 @@
               <a class="text-decoration-none dropdown-toggle" href="#" role="button"
                  data-bs-toggle="dropdown" aria-expanded="false">평가</a>
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{% url 'tutor_team_evaluation' %}">팀 평가</a></li>
-                <li><a class="dropdown-item" href="{% url 'tutor_individual_evaluation' %}">개인 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_team_evaluation' %}">튜터 팀 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_individual_evaluation' %}">튜터 개인 평가</a></li>
                 <li><a class="dropdown-item" href="{% url 'tutor_evaluation_status' %}">평가 현황</a></li>
                 <li><a class="dropdown-item" href="{% url 'student_score_overview' %}">전체 학생 성적</a></li>
               </ul>
@@ -182,7 +196,6 @@
 
             <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
           {% else %}
-            <a class="text-decoration-none" href="{% url 'student_home' %}">학생 홈</a>
             <a class="text-decoration-none" href="{% url 'student_team' %}">내 팀</a>
             <a class="text-decoration-none" href="{% url 'student_result' %}">내 결과</a>
           {% endif %}
@@ -222,6 +235,35 @@
         bootstrap.Alert.getOrCreateInstance(el).close();
       }, 2500);
     });
+
+    // 페이지 전환 진행바 — 링크 클릭, 폼 제출, JS 리다이렉트 등 이 페이지를
+    // 벗어나는 모든 경우에 공통으로 걸리는 beforeunload 하나로 처리.
+    // (같은 페이지 내 해시 이동이나 새 탭 열기에는 beforeunload가 안 걸려서
+    // 자연히 제외됨)
+    (function () {
+      var bar = document.getElementById('page-progress-bar');
+      var timer = null;
+
+      function startProgress() {
+        clearInterval(timer);
+        var width = 0;
+        timer = setInterval(function () {
+          width += (90 - width) / 8;
+          bar.style.width = width + '%';
+        }, 200);
+      }
+
+      window.addEventListener('beforeunload', startProgress);
+
+      // bfcache로 뒤로가기 했을 때 이전에 멈춘 바가 남아있지 않도록 리셋
+      window.addEventListener('pageshow', function () {
+        clearInterval(timer);
+        bar.style.transition = 'none';
+        bar.style.width = '0%';
+        void bar.offsetWidth;
+        bar.style.transition = 'width 0.3s ease-out';
+      });
+    })();
   </script>
 </body>
 </html>

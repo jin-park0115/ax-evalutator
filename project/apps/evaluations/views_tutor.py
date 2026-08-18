@@ -34,7 +34,7 @@ def round_list(request):
                 round_obj.start_at = start_date
                 round_obj.end_at = end_date
                 round_obj.save(update_fields=["name", "start_at", "end_at"])
-                messages.success(request, f"[{title}] 회차가 수정되었습니다.")
+                messages.success(request, f"{title} 회차가 수정되었습니다.")
             else:
                 # 회차 생성
                 student_weight = request.POST.get("student_weight", 0.5)
@@ -46,7 +46,7 @@ def round_list(request):
                     student_weight=float(student_weight),
                     tutor_weight=float(tutor_weight),
                 )
-                messages.success(request, f"[{title}] 회차가 생성되었습니다.")
+                messages.success(request, f"{title} 회차가 생성되었습니다.")
             return redirect("tutor_rounds")
 
     # DB에서 전체 회차 조회
@@ -69,7 +69,7 @@ def delete_round(request, round_id):
         round_obj = get_object_or_404(EvaluationRound, id=round_id)
         name = round_obj.name
         round_obj.delete()
-        messages.success(request, f"[{name}] 회차가 삭제되었습니다.")
+        messages.success(request, f"{name} 회차가 삭제되었습니다.")
 
     return redirect("tutor_rounds")
 
@@ -481,7 +481,7 @@ def team_evaluation_form(request, team_id):
                     "responses": answers,
                 },
             )
-            messages.success(request, f"{target_team.name} 튜터 평가가 저장되었습니다.")
+            messages.success(request, f"{target_team.name} 팀에 대한 튜터 평가가 저장되었습니다.")
             return redirect(f"/tutor/team-evaluation/?round_id={round_obj.id}")
 
     return render(
@@ -593,7 +593,7 @@ def individual_evaluation_form(request, student_id):
                 },
             )
             messages.success(
-                request, f"{target_student.username} 튜터 평가가 저장되었습니다."
+                request, f"{target_student.username} 학생에 대한 튜터 평가가 저장되었습니다."
             )
             return redirect(
                 f"/tutor/individual-evaluation/?round_id={round_obj.id}"
@@ -649,23 +649,12 @@ def template_create(request):
             )
             return redirect("tutor_templates")
 
-    # 실제 평가 제출 화면(views_eval.py/views_tutor.py의 _get_template_items)은
-    # criteria를 [{"key","text"}, ...] 플랫 리스트로만 읽는다. models.py의
-    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 {"scale","questions"}
-    # 딕셔너리 형태라 그대로 저장하면 평가 화면에 문항이 하나도 안 뜬다 —
-    # 여기서 질문 내용은 그대로 가져오되 실제로 쓰이는 플랫 형태로 변환한다.
-    def _to_flat_items(criteria):
-        return [
-            {"key": q["id"], "text": q["content"]}
-            for q in criteria["questions"]
-        ]
-
     default_items = {
-        "TEAM": _to_flat_items(DEFAULT_TEAM_CRITERIA),
-        "INDIVIDUAL": _to_flat_items(DEFAULT_INDIVIDUAL_CRITERIA),
+        "TEAM": DEFAULT_TEAM_CRITERIA,
+        "INDIVIDUAL": DEFAULT_INDIVIDUAL_CRITERIA,
         # 튜터 평가 기본값도 팀 평가와 같은 5문항 사용 (EvaluationTemplate.save()의
         # TUTOR 기본값 처리와 동일한 기준)
-        "TUTOR": _to_flat_items(DEFAULT_TEAM_CRITERIA),
+        "TUTOR": DEFAULT_TEAM_CRITERIA,
     }
 
     rounds = EvaluationRound.objects.order_by("-id")

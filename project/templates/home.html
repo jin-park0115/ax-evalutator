@@ -5,7 +5,6 @@
   {% if user.is_authenticated %}
   <h1 class="h3 mb-2">AX Evaluator</h1>
   <p class="text-secondary mb-4">수강생, 팀 편성, 평가 입력, 점수/석차, 결과 공개 흐름을 관리하는 플랫폼입니다.</p>
-    {% if user.is_staff %}
     <div class="row g-3">
       <div class="col-md-4">
         <a href="{% url 'tutor_rounds' %}" class="card h-100 text-decoration-none text-reset">
@@ -72,34 +71,6 @@
         </a>
       </div>
     </div>
-    {% else %}
-    <div class="row g-3">
-      <div class="col-md-4">
-        <a href="{% url 'student_home' %}" class="card h-100 text-decoration-none text-reset">
-          <div class="card-body">
-            <h6 class="mb-1">학생 홈</h6>
-            <p class="text-muted small mb-0">현재 평가 회차 진행 상태를 확인합니다.</p>
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4">
-        <a href="{% url 'student_team' %}" class="card h-100 text-decoration-none text-reset">
-          <div class="card-body">
-            <h6 class="mb-1">내 팀</h6>
-            <p class="text-muted small mb-0">소속 팀과 팀원을 확인합니다.</p>
-          </div>
-        </a>
-      </div>
-      <div class="col-md-4">
-        <a href="{% url 'student_result' %}" class="card h-100 text-decoration-none text-reset">
-          <div class="card-body">
-            <h6 class="mb-1">내 결과</h6>
-            <p class="text-muted small mb-0">공개된 점수와 석차를 확인합니다.</p>
-          </div>
-        </a>
-      </div>
-    </div>
-    {% endif %}
   {% else %}
   <div class="d-flex flex-column align-items-center justify-content-center text-center mx-auto"
        style="min-height: 60vh;">
