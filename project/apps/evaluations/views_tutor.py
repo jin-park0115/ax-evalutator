@@ -240,9 +240,28 @@ def team_build(request):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    unassigned_students = User.objects.filter(role=User.Role.STUDENT).exclude(
-        id__in=assigned_ids
-    )
+    unassigned_students = User.objects.filter(
+        role=User.Role.STUDENT, is_active=True
+    ).exclude(id__in=assigned_ids)
+
+    # 편성 화면은 전부 브라우저(JS) 상태로 그리고, "편성 확정"을 눌러야만
+    # DB에 저장된다. 초기 화면을 채울 현재 DB 상태를 JSON으로 한 번에
+    # 넘겨준다 (json_script로 안전하게 이스케이프).
+    initial_state = {
+        "teams": {
+            team.name: {
+                "eval_opened": bool(team.eval_opened_at),
+                "members": [
+                    {"id": m.student.id, "username": m.student.username}
+                    for m in team.members.all()
+                ],
+            }
+            for team in teams
+        },
+        "unassigned": [
+            {"id": s.id, "username": s.username} for s in unassigned_students
+        ],
+    }
 
     return render(
         request,
@@ -254,6 +273,7 @@ def team_build(request):
             "unassigned_students": unassigned_students,
             "round_editable": is_round_editable(round_obj) if round_obj else False,
             "has_score_history": has_score_history,
+            "initial_state": initial_state,
         },
     )
 

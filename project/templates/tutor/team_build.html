@@ -165,42 +165,18 @@
 </div>
 {% endif %}
 
+{{ initial_state|json_script:"initialStateData" }}
+
 <div class="row mb-4">
     <!-- 미배정 수강생 목록 -->
     <div class="col-md-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <strong>수강생 목록 (미배정)</strong>
-                <span class="text-muted" id="unassignedCountLabel">총 {{ unassigned_students|length }}명 미배정</span>
+                <span class="text-muted" id="unassignedCountLabel">총 0명 미배정</span>
             </div>
             <div class="card-body">
-                <div class="row g-2" id="unassignedStudentList">
-                    {% for s in unassigned_students %}
-                    <div class="col-md-4 student-item" data-student-id="{{ s.id }}">
-                        <div class="p-2 border rounded d-flex align-items-center justify-content-between bg-light">
-                            <div class="form-check mb-0 text-nowrap flex-grow-1 me-2" style="min-width: 80px;">
-                                <input class="form-check-input excludeCheck" type="checkbox" value="{{ s.id }}" id="ex_{{ s.id }}">
-                                <label class="form-check-label small" for="ex_{{ s.id }}">
-                                    {{ s.username }}
-                                </label>
-                            </div>
-                            {% if round_editable %}
-                            <div class="d-flex gap-1 align-items-center">
-                                <select class="form-select form-select-sm assignTeamSelect px-1" style="width: 75px;">
-                                    <option value="" disabled selected>팀</option>
-                                    {% for t in teams %}
-                                    <option value="{{ t.id }}">{{ t.name }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button type="button" class="btn btn-sm btn-outline-primary assignBtn px-2" data-student-id="{{ s.id }}">배정</button>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="text-muted small empty-msg">미배정 상태의 학생이 없습니다.</div>
-                    {% endfor %}
-                </div>
+                <div class="row g-2" id="unassignedStudentList"></div>
             </div>
         </div>
     </div>
@@ -210,59 +186,10 @@
 <div class="card">
     <div class="card-header">
         <strong>팀 편성 결과</strong>
-        <span class="text-muted">({{ teams|length }}개 팀)</span>
+        <span class="text-muted" id="teamCountLabel">(0개 팀)</span>
     </div>
     <div class="card-body">
-        <div class="row g-3" id="teamListArea">
-            {% for team in teams %}
-            <div class="col-md-4 team-card" data-team-id="{{ team.id }}">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <strong>{{ team.name }}</strong>
-                        {% if team.eval_opened_at %}
-                        <span class="badge text-bg-success">발표 시작됨</span>
-                        {% else %}
-                        <span class="badge text-bg-secondary">대기</span>
-                        {% endif %}
-                    </div>
-                    <div class="card-body">
-                        <h6 class="mb-3 team-member-count">팀원 ({{ team.members.count }}명)</h6>
-                        <div class="team-member-list">
-                            {% for member in team.members.all %}
-                            <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom gap-1 member-item" data-student-id="{{ member.student.id }}">
-                                <div class="form-check mb-0 text-nowrap flex-shrink-0" style="min-width: 65px;">
-                                    <input class="form-check-input fixCheck me-1" type="checkbox" value="{{ member.student.id }}" id="fix_{{ member.student.id }}" {% if not round_editable %}disabled{% endif %}>
-                                    <label class="form-check-label small" for="fix_{{ member.student.id }}">
-                                        {{ member.student.username }}
-                                    </label>
-                                </div>
-                                {% if round_editable %}
-                                <div class="d-flex gap-1 align-items-center">
-                                    <select class="form-select form-select-sm moveTeamSelect px-1" style="width: 75px; font-size: 0.8rem;">
-                                        {% for t in teams %}
-                                        {% if t.id != team.id %}
-                                        <option value="{{ t.id }}">{{ t.name }}</option>
-                                        {% endif %}
-                                        {% endfor %}
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary moveBtn px-2" style="font-size: 0.8rem;" data-student-id="{{ member.student.id }}">이동</button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger unassignBtn px-2" style="font-size: 0.8rem;" data-student-id="{{ member.student.id }}">해제</button>
-                                </div>
-                                {% endif %}
-                            </div>
-                            {% empty %}
-                            <div class="text-muted small empty-member-msg">배정된 팀원이 없습니다.</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-12 text-center text-muted py-4">
-                편성된 팀이 없습니다. 상단의 "자동 편성"을 실행하세요.
-            </div>
-            {% endfor %}
-        </div>
+        <div class="row g-3" id="teamListArea"></div>
     </div>
 </div>
 {% endif %}
@@ -285,13 +212,196 @@
         </div>`;
     }
 
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
     const roundSelect = document.getElementById('roundSelect');
     if (roundSelect) {
         roundSelect.addEventListener('change', function () {
             window.location.href = '?round_id=' + this.value;
         });
     }
-const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
+
+    // =========================================================
+    // 편성 초안(draft) 상태 — 자동편성/배정/이동/해제는 전부 여기서만
+    // 바뀌고, "편성 확정"을 눌러야 서버에 저장된다.
+    // =========================================================
+    const initialStateEl = document.getElementById('initialStateData');
+    const initialState = initialStateEl ? JSON.parse(initialStateEl.textContent) : { teams: {}, unassigned: [] };
+    const roundEditable = {{ round_editable|yesno:'true,false' }};
+
+    const state = { teams: {}, unassigned: [] };
+
+    function loadInitialState() {
+        state.teams = {};
+        Object.keys(initialState.teams || {}).forEach(function (name) {
+            const t = initialState.teams[name];
+            state.teams[name] = { evalOpened: !!t.eval_opened, members: (t.members || []).slice() };
+        });
+        state.unassigned = (initialState.unassigned || []).slice();
+    }
+
+    function teamNamesSorted() {
+        return Object.keys(state.teams).sort(function (a, b) {
+            const na = parseInt(a, 10);
+            const nb = parseInt(b, 10);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return a.localeCompare(b);
+        });
+    }
+
+    function findStudentEverywhere(studentId) {
+        let idx = state.unassigned.findIndex(function (s) { return s.id === studentId; });
+        if (idx !== -1) return state.unassigned.splice(idx, 1)[0];
+
+        for (const name of Object.keys(state.teams)) {
+            const members = state.teams[name].members;
+            idx = members.findIndex(function (m) { return m.id === studentId; });
+            if (idx !== -1) return members.splice(idx, 1)[0];
+        }
+        return null;
+    }
+
+    function moveStudent(studentId, targetTeamName) {
+        const student = findStudentEverywhere(studentId);
+        if (!student) return;
+        if (targetTeamName && state.teams[targetTeamName]) {
+            state.teams[targetTeamName].members.push(student);
+        } else {
+            state.unassigned.push(student);
+        }
+        renderAll();
+    }
+
+    function renderUnassigned() {
+        const container = document.getElementById('unassignedStudentList');
+        document.getElementById('unassignedCountLabel').textContent = `총 ${state.unassigned.length}명 미배정`;
+
+        if (state.unassigned.length === 0) {
+            container.innerHTML = '<div class="text-muted small empty-msg">미배정 상태의 학생이 없습니다.</div>';
+            return;
+        }
+
+        const teamOptions = teamNamesSorted()
+            .map(function (name) { return `<option value="${name}">${name}</option>`; })
+            .join('');
+
+        container.innerHTML = state.unassigned.map(function (s) {
+            const actions = roundEditable ? `
+                <div class="d-flex gap-1 align-items-center">
+                    <select class="form-select form-select-sm assignTeamSelect px-1" style="width: 75px;">
+                        <option value="" disabled selected>팀</option>
+                        ${teamOptions}
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-primary assignBtn px-2" data-student-id="${s.id}">배정</button>
+                </div>` : '';
+
+            return `
+                <div class="col-md-4 student-item" data-student-id="${s.id}">
+                    <div class="p-2 border rounded d-flex align-items-center justify-content-between bg-light">
+                        <div class="form-check mb-0 text-nowrap flex-grow-1 me-2" style="min-width: 80px;">
+                            <input class="form-check-input excludeCheck" type="checkbox" value="${s.id}" id="ex_${s.id}">
+                            <label class="form-check-label small" for="ex_${s.id}">${escapeHtml(s.username)}</label>
+                        </div>
+                        ${actions}
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function renderTeams() {
+        const container = document.getElementById('teamListArea');
+        const names = teamNamesSorted();
+        document.getElementById('teamCountLabel').textContent = `(${names.length}개 팀)`;
+
+        if (names.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center text-muted py-4">편성된 팀이 없습니다. 상단의 "자동 편성"을 실행하세요.</div>';
+            return;
+        }
+
+        container.innerHTML = names.map(function (name) {
+            const team = state.teams[name];
+            const badge = team.evalOpened
+                ? '<span class="badge text-bg-success">발표 시작됨</span>'
+                : '<span class="badge text-bg-secondary">대기</span>';
+
+            const otherTeamOptions = names
+                .filter(function (n) { return n !== name; })
+                .map(function (n) { return `<option value="${n}">${n}</option>`; })
+                .join('');
+
+            const membersHtml = team.members.length === 0
+                ? '<div class="text-muted small empty-member-msg">배정된 팀원이 없습니다.</div>'
+                : team.members.map(function (m) {
+                    const actions = roundEditable ? `
+                        <div class="d-flex gap-1 align-items-center">
+                            <select class="form-select form-select-sm moveTeamSelect px-1" style="width: 75px; font-size: 0.8rem;">
+                                ${otherTeamOptions}
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-secondary moveBtn px-2" style="font-size: 0.8rem;" data-student-id="${m.id}">이동</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger unassignBtn px-2" style="font-size: 0.8rem;" data-student-id="${m.id}">해제</button>
+                        </div>` : '';
+
+                    return `
+                        <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom gap-1 member-item" data-student-id="${m.id}">
+                            <div class="form-check mb-0 text-nowrap flex-shrink-0" style="min-width: 65px;">
+                                <input class="form-check-input fixCheck me-1" type="checkbox" value="${m.id}" id="fix_${m.id}" ${roundEditable ? '' : 'disabled'}>
+                                <label class="form-check-label small" for="fix_${m.id}">${escapeHtml(m.username)}</label>
+                            </div>
+                            ${actions}
+                        </div>`;
+                }).join('');
+
+            return `
+                <div class="col-md-4 team-card" data-team-name="${name}">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>${name}</strong>
+                            ${badge}
+                        </div>
+                        <div class="card-body">
+                            <h6 class="mb-3 team-member-count">팀원 (${team.members.length}명)</h6>
+                            <div class="team-member-list">${membersHtml}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function renderAll() {
+        renderUnassigned();
+        renderTeams();
+    }
+
+    loadInitialState();
+    renderAll();
+
+    document.addEventListener('click', function (e) {
+        if (e.target.classList.contains('assignBtn')) {
+            const studentId = parseInt(e.target.dataset.studentId, 10);
+            const select = e.target.previousElementSibling;
+            if (!select.value) {
+                showFeedback('배정할 팀을 선택해주세요.', true);
+                return;
+            }
+            moveStudent(studentId, select.value);
+        }
+        if (e.target.classList.contains('moveBtn')) {
+            const studentId = parseInt(e.target.dataset.studentId, 10);
+            const select = e.target.previousElementSibling;
+            if (!select.value) return;
+            moveStudent(studentId, select.value);
+        }
+        if (e.target.classList.contains('unassignBtn')) {
+            const studentId = parseInt(e.target.dataset.studentId, 10);
+            moveStudent(studentId, null);
+        }
+    });
+
+    const hasScoreHistory = {{ has_score_history|yesno:'true,false' }};
     const toggleSeedConfigBtn = document.getElementById('toggleSeedConfigBtn');
     const seedConfigCard = document.getElementById('seedConfigCard');
 
@@ -409,7 +519,9 @@ const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
         updateSlider();
     }
 
-    // 자동 편성 실행
+    // 자동 편성 미리보기 — 여기서는 DB에 아무것도 저장되지 않는다.
+    // 서버가 계산해 준 결과로 draft state만 교체하고, 실제 저장은
+    // "편성 확정" 버튼을 눌러야 이뤄진다.
     const autoAssignBtn = document.getElementById('autoAssignBtn');
     if (autoAssignBtn) {
         autoAssignBtn.addEventListener('click', function () {
@@ -423,6 +535,11 @@ const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
             const fixedStudentIds = Array.from(document.querySelectorAll('.fixCheck:checked')).map(el => parseInt(el.value, 10));
             const excludedStudentIds = Array.from(document.querySelectorAll('.excludeCheck:checked')).map(el => parseInt(el.value, 10));
 
+            const currentAssignments = {};
+            Object.keys(state.teams).forEach(function (name) {
+                currentAssignments[name] = state.teams[name].members.map(function (m) { return m.id; });
+            });
+
             fetch('/teams/auto-assign/', {
                 method: 'POST',
                 headers: {
@@ -435,116 +552,46 @@ const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
                     window: seedWindowValue ? parseInt(seedWindowValue, 10) : undefined,
                     thresholds: [pct1, pct2],
                     fixed_student_ids: fixedStudentIds,
-                    excluded_student_ids: excludedStudentIds
+                    excluded_student_ids: excludedStudentIds,
+                    current_assignments: currentAssignments,
                 }),
             })
             .then(res => res.json().then(data => ({ status: res.status, data })))
             .then(({ status, data }) => {
                 if (status >= 400) {
                     showFeedback(data.error || '자동 편성에 실패했습니다.', true);
-                } else {
-                    if (data.teams) {
-                        updateTeamDOM(data.teams);
-                        showFeedback('임시 편성이 완료되었습니다. 최종 결과를 원하시면 [편성 확정]을 눌러주세요.');
-                    } else {
-                        window.location.reload();
-                    }
+                    return;
                 }
+
+                const newTeams = {};
+                Object.keys(data.teams).forEach(function (name) {
+                    newTeams[name] = {
+                        evalOpened: state.teams[name] ? state.teams[name].evalOpened : false,
+                        members: data.teams[name].map(function (m) {
+                            return { id: m.student_id, username: m.name };
+                        }),
+                    };
+                });
+                state.teams = newTeams;
+                // 자동 편성 대상에서 제외 체크한 학생만 미배정으로 남는다
+                const excludedSet = new Set(excludedStudentIds);
+                state.unassigned = state.unassigned.filter(function (s) { return excludedSet.has(s.id); });
+
+                renderAll();
+                showFeedback('임시 편성이 완료되었습니다. 최종 저장을 원하시면 [편성 확정]을 눌러주세요.');
             })
             .catch(() => showFeedback('요청 중 오류가 발생했습니다.', true));
         });
     }
 
-    function updateTeamDOM(teamsData) {
-        teamsData.forEach(team => {
-            const teamCard = document.querySelector(`.team-card[data-team-id="${team.id}"]`);
-            if (!teamCard) return;
-
-            const memberListContainer = teamCard.querySelector('.team-member-list');
-            const memberCountLabel = teamCard.querySelector('.team-member-count');
-            
-            memberCountLabel.innerText = `팀원 (${team.members.length}명)`;
-            memberListContainer.innerHTML = '';
-
-            if (team.members.length === 0) {
-                memberListContainer.innerHTML = '<div class="text-muted small empty-member-msg">배정된 팀원이 없습니다.</div>';
-            } else {
-                team.members.forEach(m => {
-                    const studentItem = document.querySelector(`.student-item[data-student-id="${m.student_id}"]`);
-
-                    const memberHtml = `
-                        <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom gap-1 member-item" data-student-id="${m.student_id}">
-                            <div class="form-check mb-0 text-nowrap flex-shrink-0" style="min-width: 65px;">
-                                <input class="form-check-input fixCheck me-1" type="checkbox" value="${m.student_id}" id="fix_${m.student_id}">
-                                <label class="form-check-label small" for="fix_${m.student_id}">
-                                    ${m.student_name}
-                                </label>
-                            </div>
-                            <div class="d-flex gap-1 align-items-center">
-                                <button type="button" class="btn btn-sm btn-outline-danger unassignBtn px-2" style="font-size: 0.8rem;" data-student-id="${m.student_id}">해제</button>
-                            </div>
-                        </div>
-                    `;
-                    memberListContainer.insertAdjacentHTML('beforeend', memberHtml);
-
-                    if (studentItem) {
-                        studentItem.remove();
-                    }
-                });
-            }
-        });
-    }
-
-    function assignStudentToTeam(studentId, teamId) {
-        const roundId = roundSelect.value;
-        fetch('/teams/assign/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken,
-            },
-            body: JSON.stringify({ 
-                student_id: studentId, 
-                team_id: teamId || null,
-                round_id: roundId
-            }),
-        })
-        .then(res => res.json().then(data => ({ status: res.status, data })))
-        .then(({ status, data }) => {
-            if (status >= 400) {
-                showFeedback(data.error || '처리에 실패했습니다.', true);
-            } else {
-                window.location.reload();
-            }
-        })
-        .catch(() => showFeedback('요청 중 오류가 발생했습니다.', true));
-    }
-
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('assignBtn')) {
-            const studentId = e.target.dataset.studentId;
-            const select = e.target.previousElementSibling;
-            if (!select.value) {
-                showFeedback('배정할 팀을 선택해주세요.', true);
-                return;
-            }
-            assignStudentToTeam(studentId, select.value);
-        }
-        if (e.target.classList.contains('moveBtn')) {
-            const studentId = e.target.dataset.studentId;
-            const select = e.target.previousElementSibling;
-            assignStudentToTeam(studentId, select.value);
-        }
-        if (e.target.classList.contains('unassignBtn')) {
-            const studentId = e.target.dataset.studentId;
-            assignStudentToTeam(studentId, null);
-        }
-    });
-
     const confirmBtn = document.getElementById('confirmBtn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', function () {
             // 확정 후에도 "수정" 버튼으로 다시 열 수 있어서 별도 확인창 없이 바로 진행
+            const assignments = {};
+            Object.keys(state.teams).forEach(function (name) {
+                assignments[name] = state.teams[name].members.map(function (m) { return m.id; });
+            });
 
             fetch('/teams/confirm/', {
                 method: 'POST',
@@ -552,7 +599,7 @@ const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrftoken,
                 },
-                body: JSON.stringify({ round_id: roundSelect.value }),
+                body: JSON.stringify({ round_id: roundSelect.value, assignments: assignments }),
             })
             .then(res => res.json().then(data => ({ status: res.status, data })))
             .then(({ status, data }) => {
