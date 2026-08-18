@@ -59,14 +59,21 @@ def get_my_team(user):
 
 
 def get_visible_result(user):
-    """get_visible_result(user, round) 계약의 임시 구현.
-    BE2의 calculate_round()/score_service.get_visible_result()가 나오면
-    이 함수 전체를 그걸로 교체한다.
+    """get_visible_result(user, round) 계약.
 
-    team_first(1위 팀명), formula(계산 과정 문자열)는 집계 로직이
-    있어야 나오는 값이라 여기서는 채우지 않는다.
+    [수정] team_first(1위 팀명), team_rankings(전체 팀 순위 목록)를 새로 채웠다.
+    기존 team_score/personal_score/final_score/rank 4개 필드는 손대지 않았다.
+
+    - team_first: round.team_first_rank_visible이 켜져 있을 때만 1위 팀 이름
+    - team_rankings: round.team_rank_visible이 켜져 있을 때만 전체 팀 순위 목록
+      (각 항목: {"team_name": str, "score": float, "rank": int})
+
+    팀 순위는 apps.scoring.services.calculate_team_rankings()를 그대로 쓴다.
+    이 회차의 ScoreResult에서 팀별 team_score를 모아서 그 자리에서 계산한다
+    (팀 순위를 저장하는 별도 테이블/필드가 아직 없기 때문 — 매번 계산).
     """
     from apps.evaluations.models import EvaluationRound, ScoreResult
+    from apps.scoring.services import calculate_team_rankings
 
     round_obj = (
         EvaluationRound.objects.filter(
@@ -83,11 +90,55 @@ def get_visible_result(user):
     if not score:
         return None
 
+    team_first = None
+    team_rankings = None
+
+    # 둘 중 하나라도 공개 설정이 켜져 있을 때만 팀 순위를 계산한다
+    # (꺼져 있으면 계산 자체가 필요 없음)
+    if round_obj.team_first_rank_visible or round_obj.team_rank_visible:
+        team_rows = (
+            ScoreResult.objects.filter(round=round_obj)
+            .values("team_id", "team__name", "team_score")
+            .distinct()
+        )
+
+        team_scores = {}
+        team_names = {}
+        for row in team_rows:
+            team_id = row["team_id"]
+            team_scores[team_id] = row["team_score"]
+            team_names[team_id] = row["team__name"]
+
+        if team_scores:
+            rankings = calculate_team_rankings(team_scores, team_names)
+            # rankings: [(team_id, team_score, rank), ...]
+
+            if round_obj.team_first_rank_visible:
+                first_place = next(
+                    (item for item in rankings if item[2] == 1),
+                    None,
+                )
+                if first_place:
+                    team_first_team_id = first_place[0]
+                    team_first = team_names[team_first_team_id]
+
+            if round_obj.team_rank_visible:
+                team_rankings = [
+                    {
+                        "team_name": team_names[team_id],
+                        "score": team_score,
+                        "rank": rank,
+                    }
+                    for team_id, team_score, rank in rankings
+                ]
+
     return {
         "team_score": score.team_score if round_obj.team_rank_visible else None,
         "personal_score": score.individual_score if round_obj.individual_score_visible else None,
         "final_score": score.final_score,
         "rank": score.rank if round_obj.individual_rank_visible else None,
+        "team_first": team_first,
+        "team_rankings": team_rankings,
     }
 
 
