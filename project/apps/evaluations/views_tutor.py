@@ -269,8 +269,19 @@ def team_build(request):
 @staff_member_required
 def unlock_round_formation(request, round_id):
     if request.method == "POST":
+        from apps.teams.models import Team
+
         round_obj = get_object_or_404(EvaluationRound, id=round_id)
-        if round_obj.status == EvaluationRound.Status.READY:
+        has_eval_started = Team.objects.filter(
+            round=round_obj, eval_opened_at__isnull=False
+        ).exists()
+
+        if has_eval_started:
+            messages.error(request, "이미 발표(평가)가 시작되어 되돌릴 수 없습니다.")
+        elif round_obj.status in (
+            EvaluationRound.Status.READY,
+            EvaluationRound.Status.IN_PROGRESS,
+        ):
             round_obj.status = EvaluationRound.Status.DRAFT
             round_obj.save(update_fields=["status"])
             messages.success(request, "팀 편성을 다시 수정할 수 있습니다.")
