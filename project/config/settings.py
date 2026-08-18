@@ -92,6 +92,14 @@ LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/student/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
+# messages.error()가 기본으로 붙이는 태그가 "error"라서 alert-error가
+# 되는데, Bootstrap엔 그런 클래스가 없어 배경/테두리가 안 먹었다.
+# Bootstrap의 alert-danger로 매핑.
+from django.contrib.messages import constants as message_constants
+MESSAGE_TAGS = {
+    message_constants.ERROR: "danger",
+}
+
 AUTH_USER_MODEL = 'accounts.User'
 
 AUTHENTICATION_BACKENDS = [
