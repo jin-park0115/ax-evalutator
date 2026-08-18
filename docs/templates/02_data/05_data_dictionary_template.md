@@ -60,16 +60,23 @@
 
 ## 3. 점수/비율 필드 규칙
 
+모든 점수는 **1~5점 스케일을 끝까지 유지**한다 — 100점으로 환산하는 단계는 없다.
+
 | 필드 | 값 범위 | 규칙 |
 |---|---|---|
 | `EVALUATION_ROUND.team_weight` | 0~1 | 고정값 `0.4` |
 | `EVALUATION_ROUND.individual_weight` | 0~1 | 고정값 `0.6` |
 | `EVALUATION_ROUND.student_weight` + `tutor_weight` | 각 0~1 | 합이 반드시 `1.00` |
 | 문항 점수 (`responses` 내부) | 1~5 (정수) | 각 문항마다 점수 + 서술 의견 |
-| `*_EVALUATION.score` | FLOAT | 문항 점수들을 조합해 계산된 해당 평가의 점수 |
-| `SCORE_RESULT.final_score` | FLOAT | `팀 평가점수 × 0.4 + 개인 평가점수 × 0.6` |
+| `TEAM_EVALUATION.score` / `INDIVIDUAL_EVALUATION.score` / `TUTOR_EVALUATION.score` | 1~5 (실수) | 해당 평가 1건의 문항 점수 평균 |
+| `SCORE_RESULT.team_score` | 1~5 (실수) | 학생 팀 평가점수 + 튜터 팀 평가점수를 `student_weight`/`tutor_weight`로 가중합(튜터 평가 없으면 학생 값 그대로) |
+| `SCORE_RESULT.individual_score` | 1~5 (실수) | 학생 개인 평가점수(5건 이상이면 최댓값·최솟값 절사평균) + 튜터 개인 평가점수를 가중합 |
+| `SCORE_RESULT.final_score` | 1~5 (실수) | `team_score × 0.4 + individual_score × 0.6` |
+| `SCORE_RESULT.rank` | 정수 | `final_score` 내림차순. 동점자는 같은 석차, 다음 석차는 동점자 수만큼 건너뜀(표준 경쟁 순위) |
 
-계산식 배경은 [../../ERD.md](../../ERD.md)의 "점수 구조" 섹션 참고 (해당 문서는 수정하지 않음).
+계산식 상세와 예시는 [../01_requirements/business_rule_BR06.md](../01_requirements/business_rule_BR06.md)(팀 점수),
+[BR07](../01_requirements/business_rule_BR07.md)(개인 점수), [BR08](../01_requirements/business_rule_BR08.md)(최종점수) 참고.
+소수점은 계산 과정에서 별도로 반올림하지 않고 실수 값을 그대로 저장한다.
 
 ## 4. 도메인 용어
 

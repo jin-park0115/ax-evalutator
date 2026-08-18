@@ -14,6 +14,7 @@
 | REQ-EVAL-001 | 팀 평가 | BR-01 | TeamEvaluation | TC-EVAL-001 |  |  |
 | REQ-EVAL-002 | 개인 평가 대상 제한 | BR-02, BR-03, BR-04 | IndividualEvaluation | TC-EVAL-002 |  |  |
 | REQ-EVAL-003 | 평가 중복 방지 | BR-05 | Evaluation | TC-EVAL-003 |  |  |
+| REQ-EVAL-004 | 평가 최종 제출(부분 제출 허용) | BR-11 | submit_final(P-19) | TC-EVAL-004 |  |  |
 | REQ-SCORE-001 | 팀 점수 계산 | BR-06 | TeamScore | TC-SCORE-001 |  |  |
 | REQ-SCORE-002 | 개인 점수 계산 | BR-07 | PersonalScore | TC-SCORE-002 |  |  |
 | REQ-SCORE-003 | 최종점수 계산 | BR-08 | FinalScore | TC-SCORE-003 |  |  |
@@ -36,6 +37,7 @@
 | BR-08 | 개인 최종점수 계산 | REQ-SCORE-003 | FinalScore | TC-SCORE-003 |  |
 | BR-09 | 최종점수의 자동 팀 편성 활용 | REQ-TEAM-001 | TeamFormation | TC-TEAM-001 |  |
 | BR-10 | 팀/개인 순위 공개 여부 | REQ-RANK-001 | RankingVisibility | TC-RANK-001 |  |
+| BR-11 | 평가 최종 제출 조건(부분 제출 허용) | REQ-EVAL-004 | submit_final(P-19) | TC-EVAL-004 |  |
 
 ---
 

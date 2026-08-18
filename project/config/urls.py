@@ -15,11 +15,14 @@ from apps.evaluations.views_tutor import (
     tutor_settings,
     evaluation_status,
 )
-# views_eval에도 team_evaluation_form이 있어 이름이 겹치므로 별칭으로 구분
+
+# Tutor 평가 폼
 from apps.evaluations.views_tutor import (
     team_evaluation_form as tutor_team_evaluation_form_view,
     individual_evaluation_form as tutor_individual_evaluation_form_view,
 )
+
+# 학생 평가
 from apps.evaluations.views_eval import (
     team_evaluation_list,
     team_evaluation_form,
@@ -29,37 +32,45 @@ from apps.evaluations.views_eval import (
 
 
 urlpatterns = [
+    # =========================================================
     # 메인
+    # =========================================================
     path(
         "",
         home,
         name="home",
     ),
 
+    # =========================================================
     # 학생
+    # =========================================================
     path(
         "student/",
         include("apps.students.urls"),
     ),
 
-    # 학생 평가
+    # =========================================================
+    # 학생 평가 관련
+    # =========================================================
     path(
         "",
         include("apps.evaluations.urls"),
     ),
 
-    # 팀 편성 API
+    # =========================================================
+    # 팀 구성 API
     # round_team_members / create_team /
     # assign_or_move_student / auto_assign_teams /
     # confirm_team_assignment
+    # =========================================================
     path(
         "teams/",
         include("apps.teams.urls"),
     ),
 
-    # =========================
-    # Tutor / FE2
-    # =========================
+    # =========================================================
+    # Tutor
+    # =========================================================
 
     # 회차 관리
     path(
@@ -68,7 +79,7 @@ urlpatterns = [
         name="tutor_rounds",
     ),
 
-    # 팀 편성
+    # 팀 구성
     path(
         "tutor/team-build/",
         team_build,
@@ -104,13 +115,12 @@ urlpatterns = [
         name="tutor_individual_evaluation_form",
     ),
 
-    # 템플릿
+    # 평가 문항 템플릿
     path(
         "tutor/templates/",
         template_list,
         name="tutor_templates",
     ),
-
     path(
         "tutor/templates/new/",
         template_create,
@@ -131,36 +141,43 @@ urlpatterns = [
         name="tutor_evaluation_status",
     ),
 
-    # =========================
-    # 평가 (FE2 계약: eval_team_list / eval_team_form / eval_peer_form)
-    # =========================
+    # =========================================================
+    # 학생 평가
+    # =========================================================
 
+    # 팀 평가 목록
     path(
         "eval/teams/",
         team_evaluation_list,
         name="eval_team_list",
     ),
+
+    # 특정 팀 평가
     path(
         "eval/teams/<int:team_id>/",
         team_evaluation_form,
         name="eval_team_form",
     ),
+
+    # 개인 평가
     path(
         "eval/peer/",
         peer_evaluation_form,
         name="eval_peer_form",
     ),
+
+    # 최종 제출
     path(
         "eval/submit-final/",
         submit_final,
         name="eval_submit_final",
     ),
 
-    # =========================
-    # 로그인 / 로그아웃 & 소셜 로그인
-    # =========================
+    # =========================================================
+    # 로그인 / 로그아웃
+    # =========================================================
 
-    # 커스텀 로그인 경로를 allauth보다 위에 배치
+    # 커스텀 로그인
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(
@@ -169,13 +186,14 @@ urlpatterns = [
         name="login",
     ),
 
+    # 로그아웃
     path(
         "accounts/logout/",
         auth_views.LogoutView.as_view(),
         name="logout",
     ),
 
-    # 커스텀 accounts 앱
+    # 커스텀 accounts
     path(
         "accounts/",
         include("apps.accounts.urls"),
