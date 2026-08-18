@@ -329,15 +329,56 @@ def peer_evaluation_form(request):
 @login_required
 def submit_final(request):
     """submit_final(user, round) 계약
-    — 이 학생이 임시저장해둔 TeamEvaluation/IndividualEvaluation 전체를
-      한 번에 is_final=True로 잠근다. 이후 수정 불가."""
+    — 평가 완결성 검증 후, 학생이 임시저장해둔 TeamEvaluation/IndividualEvaluation 
+      전체를 한 번에 is_final=True로 잠근다."""
     round_obj = _current_round()
+    if not round_obj:
+        messages.error(request, "현재 진행 중인 평가 회차가 없습니다.")
+        return redirect("eval_team_list")
 
     if request.method == "POST":
+        # 1. 이미 최종 제출을 완료했는지 가드
         if _has_finalized(request.user, round_obj):
             messages.error(request, "이미 최종 제출을 완료했습니다.")
             return redirect("eval_team_list")
 
+        my_team = _get_my_team(request.user, round_obj)
+
+        # 2. 필수 팀 평가 작성 여부 검증 (오픈된 팀 중 내 팀을 제외한 모든 팀)
+        open_teams = Team.objects.filter(
+            round=round_obj, eval_opened_at__isnull=False
+        )
+        if my_team:
+            open_teams = open_teams.exclude(id=my_team.id)
+
+        saved_team_ids = set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, submitted_by=request.user
+            ).values_list("target_team_id", flat=True)
+        )
+        required_team_ids = set(open_teams.values_list("id", flat=True))
+
+        missing_teams = required_team_ids - saved_team_ids
+        if missing_teams:
+            messages.error(request, "아직 작성하지 않은 팀 평가가 있습니다. 모든 팀 평가를 완료해 주세요.")
+            return redirect("eval_team_list")
+
+        # 3. 필수 개인 상호평가 작성 여부 검증 (본인 팀 팀원 전원)
+        if my_team:
+            team_members = TeamMember.objects.filter(team=my_team).exclude(student=request.user)
+            saved_member_ids = set(
+                IndividualEvaluation.objects.filter(
+                    round=round_obj, evaluator=request.user
+                ).values_list("target_id", flat=True)
+            )
+            required_member_ids = set(team_members.values_list("student_id", flat=True))
+
+            missing_members = required_member_ids - saved_member_ids
+            if missing_members:
+                messages.error(request, "아직 작성하지 않은 팀원 개인 평가가 있습니다. 모든 팀원 평가를 완료해 주세요.")
+                return redirect("eval_peer_form")
+
+        # 4. 검증 통과 시 트랜잭션 내에서 최종 제출(is_final=True) 처리
         with transaction.atomic():
             TeamEvaluation.objects.filter(
                 round=round_obj, submitted_by=request.user
