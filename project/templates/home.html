@@ -2,10 +2,9 @@
 
 {% block content %}
 <div class="py-4">
+  {% if user.is_authenticated %}
   <h1 class="h3 mb-2">AX Evaluator</h1>
   <p class="text-secondary mb-4">수강생, 팀 편성, 평가 입력, 점수/석차, 결과 공개 흐름을 관리하는 플랫폼입니다.</p>
-
-  {% if user.is_authenticated %}
     {% if user.is_staff %}
     <div class="row g-3">
       <div class="col-md-4">
@@ -33,6 +32,14 @@
         </a>
       </div>
       <div class="col-md-4">
+        <a href="{% url 'student_score_overview' %}" class="card h-100 text-decoration-none text-reset">
+          <div class="card-body">
+            <h6 class="mb-1">전체 학생 성적</h6>
+            <p class="text-muted small mb-0">전체 학생의 회차별 최종점수를 확인합니다.</p>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4">
         <a href="{% url 'tutor_settings' %}" class="card h-100 text-decoration-none text-reset">
           <div class="card-body">
             <h6 class="mb-1">결과 공개 설정</h6>
@@ -45,6 +52,14 @@
           <div class="card-body">
             <h6 class="mb-1">회원 승인</h6>
             <p class="text-muted small mb-0">가입 신청 회원을 승인/거절합니다.</p>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a href="{% url 'user_list' %}" class="card h-100 text-decoration-none text-reset">
+          <div class="card-body">
+            <h6 class="mb-1">회원 관리</h6>
+            <p class="text-muted small mb-0">학생/관리자 역할 변경 및 계정 활성화를 관리합니다.</p>
           </div>
         </a>
       </div>
@@ -86,7 +101,10 @@
     </div>
     {% endif %}
   {% else %}
-  <div class="d-flex gap-2">
+  <div class="d-flex flex-column align-items-center justify-content-center text-center mx-auto"
+       style="min-height: 60vh;">
+    <h1 class="h3 mb-2">AX Evaluator</h1>
+    <p class="text-secondary mb-4">수강생, 팀 편성, 평가 입력, 점수/석차, 결과 공개 흐름을 관리하는 플랫폼입니다.</p>
     <a href="{% url 'login' %}" class="btn btn-primary">로그인</a>
   </div>
   {% endif %}
