@@ -270,8 +270,7 @@
     const confirmBtn = document.getElementById('confirmBtn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', function () {
-            if (!confirm('편성을 확정하면 더 이상 수정할 수 없습니다. 계속할까요?')) return;
-
+            // 확정 후에도 "수정" 버튼으로 다시 열 수 있어서 별도 확인창 없이 바로 진행
             const roundId = roundSelect.value;
 
             fetch('/teams/confirm/', {
