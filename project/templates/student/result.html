@@ -71,6 +71,36 @@
       </div>
     {% endif %}
 
+    {% if result.team_rankings %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <strong>전체 팀 순위</strong>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>순위</th>
+                  <th>팀</th>
+                  <th>점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in result.team_rankings %}
+                <tr>
+                  <td>{{ row.rank }}위</td>
+                  <td>{{ row.team_name }}</td>
+                  <td>{{ row.score }}점</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
   {% endif %}
 </div>
 {% endblock %}
