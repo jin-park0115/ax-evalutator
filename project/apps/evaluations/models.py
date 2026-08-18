@@ -1,5 +1,43 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+# ==============================================================================
+# 기본 평가 문항 및 5점 척도 JSON 기본 데이터 정의
+# ==============================================================================
+SCALE_5_POINT = {
+    "max": 5,
+    "description": {
+        "5": "매우 우수 (기대 수준을 명확히 상회한다)",
+        "4": "우수 (기대 수준을 충족하고 일부 상회한다)",
+        "3": "보통 (기대 수준을 충족한다)",
+        "2": "미흡 (일부 항목이 기대 수준에 미달한다)",
+        "1": "매우 미흡 (대부분 기대 수준에 미달한다)",
+    },
+}
+
+DEFAULT_TEAM_CRITERIA = {
+    "scale": SCALE_5_POINT,
+    "questions": [
+        {"id": "q1", "order": 1, "content": "문제 정의와 목표가 명확한가"},
+        {"id": "q2", "order": 2, "content": "산출물이 요구사항을 충족하는가"},
+        {"id": "q3", "order": 3, "content": "기술적 완성도가 충분한가"},
+        {"id": "q4", "order": 4, "content": "발표 구성과 전달이 명확한가"},
+        {"id": "q5", "order": 5, "content": "질의응답에 적절히 대응했는가"},
+    ],
+}
+
+DEFAULT_INDIVIDUAL_CRITERIA = {
+    "scale": SCALE_5_POINT,
+    "questions": [
+        {"id": "q1", "order": 1, "content": "맡은 역할을 책임감 있게 수행했는가"},
+        {"id": "q2", "order": 2, "content": "일정과 약속을 지켰는가"},
+        {"id": "q3", "order": 3, "content": "의사소통이 원활했는가"},
+        {"id": "q4", "order": 4, "content": "문제 상황에 적극적으로 기여했는가"},
+        {"id": "q5", "order": 5, "content": "협업 태도가 팀에 긍정적이었는가"},
+    ],
+}
 
 
 class EvaluationRound(models.Model):
@@ -9,7 +47,6 @@ class EvaluationRound(models.Model):
         IN_PROGRESS = "in_progress", "진행 중"
         FINISHED = "finished", "종료"
 
-    # 명세서 필드
     name = models.CharField(max_length=100, verbose_name="평가 회차 이름")
     status = models.CharField(
         max_length=30,
@@ -29,22 +66,24 @@ class EvaluationRound(models.Model):
     )
 
     # 성적 비율
-    # 팀 40%, 개인 60% 고정
-    # 학생 평가 / 튜터 평가 비율은 회차별 설정
     team_weight = models.FloatField(
         default=0.4,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         verbose_name="팀 성적 비율",
     )
     individual_weight = models.FloatField(
         default=0.6,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         verbose_name="개인 성적 비율",
     )
     student_weight = models.FloatField(
         default=0.5,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         verbose_name="학생 평가 비율",
     )
     tutor_weight = models.FloatField(
         default=0.5,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         verbose_name="튜터 평가 비율",
     )
 
@@ -89,7 +128,9 @@ class Evaluation(models.Model):
         on_delete=models.CASCADE,
         related_name="received_evaluations",
     )
-    score = models.IntegerField()
+    score = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
 
     class Meta:
         constraints = [
@@ -98,6 +139,11 @@ class Evaluation(models.Model):
                 name="uq_evaluation_once",
             )
         ]
+
+    def clean(self):
+        super().clean()
+        if self.evaluator_id == self.target_id:
+            raise ValidationError("자기 자신을 평가할 수 없습니다.")
 
 
 # 1. 평가 템플릿
@@ -119,8 +165,20 @@ class EvaluationTemplate(models.Model):
     )
     criteria = models.JSONField(
         default=dict,
+        blank=True,
         verbose_name="문항 목록 (JSON)",
     )
+
+    def save(self, *args, **kwargs):
+        # criteria가 비어있는 경우 타입에 맞는 기본 5문항 JSON 할당
+        if not self.criteria:
+            if self.type == self.TemplateType.TEAM:
+                self.criteria = DEFAULT_TEAM_CRITERIA
+            elif self.type == self.TemplateType.INDIVIDUAL:
+                self.criteria = DEFAULT_INDIVIDUAL_CRITERIA
+            elif self.type == self.TemplateType.TUTOR:
+                self.criteria = DEFAULT_TEAM_CRITERIA  # 튜터 평가 기본값도 세팅 가능
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.round.name}] {self.get_type_display()} 템플릿"
@@ -149,6 +207,7 @@ class TeamEvaluation(models.Model):
         related_name="submitted_team_evaluations",
     )
     score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
         verbose_name="계산 점수",
     )
     responses = models.JSONField(
@@ -198,6 +257,7 @@ class IndividualEvaluation(models.Model):
         related_name="received_individual_evaluations",
     )
     score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
         verbose_name="계산 점수",
     )
     responses = models.JSONField(
@@ -221,6 +281,11 @@ class IndividualEvaluation(models.Model):
                 name="uq_individual_evaluation_once",
             )
         ]
+
+    def clean(self):
+        super().clean()
+        if self.evaluator_id == self.target_id:
+            raise ValidationError("자기 자신을 평가할 수 없습니다.")
 
 
 # 4. 튜터 평가
@@ -252,6 +317,7 @@ class TutorEvaluation(models.Model):
         verbose_name="팀 평가 대상",
     )
     score = models.FloatField(
+        validators=[MinValueValidator(0.0), MaxValueValidator(100.0)],
         verbose_name="계산 점수",
     )
     responses = models.JSONField(
