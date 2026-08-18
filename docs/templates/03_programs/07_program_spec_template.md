@@ -211,15 +211,53 @@
 - **처리 로직**: 최종 제출 완료 시 접근 차단. 팀원 각각에 대해 모든 문항 응답이 있어야 저장 진행(하나라도 누락되면 해당 팀원 처리 시점에서 즉시 실패 메시지 반환). 평균 점수 계산 후 `IndividualEvaluation`을 `update_or_create`, `is_final=False`
 - **출력**: 팀원별 평가 폼, 저장 결과 메시지
 - **관련 테이블**: TEAM_MEMBER, INDIVIDUAL_EVALUATION, EVALUATION_TEMPLATE
-- **관련 규칙**: 개인 평가 대상 제한 규칙(자기 자신 제외 — `.exclude(student=request.user)`)
+- **관련 규칙**: [BR-02](../01_requirements/business_rule_BR02.md) 다른 팀 구성원 평가 금지(평가 대상을 내 팀 `TeamMember`에서만 조회하는 방식으로 구현),
+  [BR-03](../01_requirements/business_rule_BR03.md) 같은 팀 구성원 평가 허용,
+  [BR-04](../01_requirements/business_rule_BR04.md) 자기 자신 평가 금지(`.exclude(student=request.user)`)
 
 ---
 
 ## P-19 평가 최종 제출
 
-- **개요**: 학생이 이번 회차에 임시저장해 둔 팀 평가·개인 평가 전체를 한 번에 잠근다.
+- **개요**: 학생이 이번 회차에 임시저장해 둔 팀 평가·개인 평가 전체를 한 번에 잠근다. 모든 평가를 완료하지 않아도 제출할 수 있다(부분 제출 허용).
 - **입력**: 없음
-- **처리 로직**: 이미 최종 제출했으면 에러 처리. 아니면 해당 사용자의 `TeamEvaluation`/`IndividualEvaluation` 레코드를 트랜잭션으로 일괄 `is_final=True` 갱신
+- **처리 로직**: 이미 최종 제출했으면 에러 처리. 아니면 해당 사용자의 `TeamEvaluation`/`IndividualEvaluation` 레코드를 트랜잭션으로 일괄 `is_final=True` 갱신 — 완료 여부(오픈된 팀을 다 평가했는지, 팀원을 다 평가했는지)는 검사하지 않는다
 - **출력**: 완료 메시지, 목록으로 리다이렉트
 - **관련 테이블**: TEAM_EVALUATION, INDIVIDUAL_EVALUATION
+- **관련 규칙**: [BR-11](../01_requirements/business_rule_BR11.md) 평가 최종 제출 조건(부분 제출 허용)
 - **비고**: 팀별 개별 제출/잠금은 없고, 회차 단위 일괄 잠금이다. 확정 규칙(2026-08-17 합의)에 따른 동작.
+
+---
+
+## P-20 과제 관리 (예정)
+
+- **개요**: 관리자가 회차별 과제(제목/설명/평가 기간)를 등록·관리한다.
+- **입력**: `round_id`, `title`, `description`, `eval_start_at`, `eval_end_at`
+- **처리 로직**: `Assignment` 모델은 이미 존재하고 `apps/evaluations/admin.py`의 `AssignmentAdmin`(및 `EvaluationRoundAdmin`의 `AssignmentInline`)으로 Django Admin에서는 등록 가능하다. 전용 튜터 화면/URL은 아직 없다.
+- **출력**: 등록된 과제 목록/상세
+- **관련 테이블**: ASSIGNMENT
+- **비고**: 구현 시 `apps/evaluations/views_tutor.py`에 CRUD 뷰 추가 + `config/urls.py`에 라우트 추가가 필요하다.
+
+---
+
+## P-21 튜터 평가 (예정)
+
+- **개요**: 관리자(튜터)가 팀 또는 학생 개인에 대해 문항 점수/서술 의견을 입력한다.
+- **입력**: `round_id`, (`team_id` 또는 `user_id` 중 하나), 문항별 점수(1~5)/의견
+- **처리 로직**: `TutorEvaluation` 모델은 이미 존재하고 `TutorEvaluationAdmin`으로 Django Admin에서는 입력 가능하다. 전용 튜터 화면/URL은 아직 없다. `user_id`/`team_id`는 정확히 하나만 채워야 한다(둘 다 채우거나 둘 다 비우면 안 됨 — 현재 DB/코드 레벨 검증이 없어 [02_data/04_table_definition_template.md](../02_data/04_table_definition_template.md)에 보완 필요 항목으로 남겨둠)
+- **출력**: 저장 결과
+- **관련 테이블**: TUTOR_EVALUATION
+- **관련 규칙**: [BR-06](../01_requirements/business_rule_BR06.md), [BR-07](../01_requirements/business_rule_BR07.md)(점수 계산에서 튜터 평가를 가중 합산)
+- **비고**: `/tutor/team-evaluation/`(P-12), `/tutor/individual-evaluation/`(P-13) 목업 화면이 이 기능을 대체할 실제 화면으로 전환될 후보다.
+
+---
+
+## P-22 점수 계산 (예정, 시스템 자동)
+
+- **개요**: 회차 종료 시 학생·튜터 평가를 가중 합산해 팀/개인/최종 점수와 석차를 계산하고, 다음 회차 자동 편성용 누적 시드를 갱신한다.
+- **입력**: 없음(회차 상태 전환이 트리거)
+- **처리 로직**: 계산 로직 자체는 `apps/scoring/services.py`에 이미 구현돼 있다(`calculate_round()`, `save_cumulative_seeds()`, 계산식은 [BR-06](../01_requirements/business_rule_BR06.md)~[BR-08](../01_requirements/business_rule_BR08.md) 참고). 다만 이 함수들을 호출하는 View나 시그널이 없어 **현재는 회차를 "종료"로 바꿔도 자동 실행되지 않는다**.
+- **출력**: `SCORE_RESULT` 레코드 생성/갱신, `TEAM_USER_SCORE_SEED` 갱신
+- **관련 테이블**: SCORE_RESULT, TEAM_USER_SCORE_SEED
+- **관련 규칙**: [BR-06](../01_requirements/business_rule_BR06.md), [BR-07](../01_requirements/business_rule_BR07.md), [BR-08](../01_requirements/business_rule_BR08.md), [BR-09](../01_requirements/business_rule_BR09.md)
+- **비고**: 구현 시 P-10(회차 관리)의 "종료" 상태 전환 처리에 `calculate_round(round)` → `save_cumulative_seeds(round.id)` 호출을 연결하면 된다.
