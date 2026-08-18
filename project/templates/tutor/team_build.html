@@ -87,18 +87,18 @@
         </select>
         {% endif %}
 
-        {% if round_editable %}
+        {% if round_editable and round.status == "draft" %}
         <button type="button" class="btn btn-outline-secondary btn-sm" id="toggleSeedConfigBtn">
             ⚙️ 시드 구간 설정
         </button>
         <button type="button" class="btn btn-primary btn-sm" id="autoAssignBtn">자동 편성</button>
-        {% if round.status == "draft" %}
         <button type="button" class="btn btn-success btn-sm" id="confirmBtn">편성 확정</button>
-        {% else %}
+        {% elif round_editable %}
         <!-- 이미 한 번 확정된 적 있는 회차(진행 중이지만 아직 평가는 시작 안 돼서
-             계속 편집 가능한 상태) — "수정"을 누르면 작성 중으로 되돌아가
-             "편성 확정" 버튼을 다시 누를 수 있는 상태가 된다 -->
-        <button type="button" class="btn btn-danger btn-sm" id="confirmBtn">편성완료</button>
+             계속 편집 가능한 상태) — 시드 설정/자동 편성은 "수정"을 눌러 작성
+             중 상태로 되돌려야 다시 쓸 수 있지만, 수동 배정/이동/해제는 이
+             상태에서도 그대로 가능하므로 그 변경사항을 저장할 버튼은 남겨둔다 -->
+        <button type="button" class="btn btn-outline-primary btn-sm" id="confirmBtn">변경사항 저장</button>
         <form method="post" action="{% url 'unlock_round_formation' round.id %}" class="d-inline m-0"
               onsubmit="return confirm('편성을 다시 작성 중 상태로 되돌립니다. 계속할까요?');">
             {% csrf_token %}
@@ -106,7 +106,6 @@
                 수정
             </button>
         </form>
-        {% endif %}
         {% elif round.status == "ready" %}
         <!-- 편성 확정된 상태 — 팀 수/자동편성 등은 잠기고, "수정"을 눌러야 다시 편집 가능 -->
         <form method="post" action="{% url 'unlock_round_formation' round.id %}" class="d-inline m-0"
@@ -210,6 +209,20 @@
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>`;
+    }
+
+    function setButtonLoading(btn, loadingText) {
+        if (!btn || btn.dataset.originalText) return;
+        btn.dataset.originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${loadingText}`;
+    }
+
+    function clearButtonLoading(btn) {
+        if (!btn || !btn.dataset.originalText) return;
+        btn.innerHTML = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+        btn.disabled = false;
     }
 
     function escapeHtml(str) {
@@ -440,6 +453,11 @@
         const seedWindowValue = seedWindowEl ? seedWindowEl.value : null;
         const excludedStudentIds = Array.from(document.querySelectorAll('.excludeCheck:checked')).map(el => parseInt(el.value, 10));
 
+        const previewArea = document.getElementById('percentilePreviewArea');
+        if (previewArea) {
+            previewArea.innerHTML = '<div class="col-12 text-muted small"><span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>불러오는 중...</div>';
+        }
+
         fetch('/teams/percentile-preview/', {
             method: 'POST',
             headers: {
@@ -477,7 +495,12 @@
                 `;
             });
         })
-        .catch(() => showFeedback('시드 구간 미리보기 실패', true));
+        .catch(() => {
+            showFeedback('시드 구간 미리보기 실패', true);
+            if (previewArea) {
+                previewArea.innerHTML = '<div class="col-12 text-muted small">미리보기를 불러오지 못했습니다.</div>';
+            }
+        });
     }
 
     function updateSlider(e) {
@@ -540,6 +563,7 @@
                 currentAssignments[name] = state.teams[name].members.map(function (m) { return m.id; });
             });
 
+            setButtonLoading(autoAssignBtn, '편성 중...');
             fetch('/teams/auto-assign/', {
                 method: 'POST',
                 headers: {
@@ -580,7 +604,8 @@
                 renderAll();
                 showFeedback('임시 편성이 완료되었습니다. 최종 저장을 원하시면 [편성 확정]을 눌러주세요.');
             })
-            .catch(() => showFeedback('요청 중 오류가 발생했습니다.', true));
+            .catch(() => showFeedback('요청 중 오류가 발생했습니다.', true))
+            .finally(() => clearButtonLoading(autoAssignBtn));
         });
     }
 
@@ -593,6 +618,7 @@
                 assignments[name] = state.teams[name].members.map(function (m) { return m.id; });
             });
 
+            setButtonLoading(confirmBtn, '저장 중...');
             fetch('/teams/confirm/', {
                 method: 'POST',
                 headers: {
@@ -605,11 +631,15 @@
             .then(({ status, data }) => {
                 if (status >= 400) {
                     showFeedback(data.error || '확정에 실패했습니다.', true);
+                    clearButtonLoading(confirmBtn);
                 } else {
                     window.location.reload();
                 }
             })
-            .catch(() => showFeedback('요청 중 오류가 발생했습니다.', true));
+            .catch(() => {
+                showFeedback('요청 중 오류가 발생했습니다.', true);
+                clearButtonLoading(confirmBtn);
+            });
         });
     }
 </script>

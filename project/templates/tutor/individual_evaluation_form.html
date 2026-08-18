@@ -8,7 +8,7 @@
     <div class="mb-4">
         <h1 class="h3 mb-1">{{ target_student.username }} 튜터 평가</h1>
         <p class="text-muted mb-1">{{ target_team.name }}</p>
-        <a href="{% url 'tutor_individual_evaluation' %}?round_id={{ round.id }}" class="text-muted small">← 개인 평가 목록으로</a>
+        <a href="{% url 'tutor_individual_evaluation' %}?round_id={{ round.id }}" class="text-muted small">← 튜터 개인 평가 목록으로</a>
     </div>
 
     {% if not items %}
