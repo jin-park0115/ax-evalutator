@@ -41,7 +41,40 @@ def round_list(request):
 
 
 # =========================================================
-# 회차 상태 변경 및 공개 설정 (추가)
+# 회차 정보 수정 (새로 추가된 기능)
+# URL: /tutor/rounds/<round_id>/edit/
+# =========================================================
+@staff_member_required
+def update_round(request, round_id):
+    """기존 회차 이름, 기간, 가중치 정보 수정"""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        
+        title = request.POST.get("title") or request.POST.get("name")
+        start_date = request.POST.get("start_date") or request.POST.get("start_at")
+        end_date = request.POST.get("end_date") or request.POST.get("end_at")
+        student_weight = request.POST.get("student_weight")
+        tutor_weight = request.POST.get("tutor_weight")
+
+        if title:
+            round_obj.name = title
+        if start_date:
+            round_obj.start_at = start_date
+        if end_date:
+            round_obj.end_at = end_date
+        if student_weight is not None:
+            round_obj.student_weight = float(student_weight)
+        if tutor_weight is not None:
+            round_obj.tutor_weight = float(tutor_weight)
+
+        round_obj.save()
+        messages.success(request, f"[{round_obj.name}] 회차 정보가 성공적으로 수정되었습니다.")
+
+    return redirect("tutor_rounds")
+
+
+# =========================================================
+# 회차 상태 변경 및 공개 설정
 # =========================================================
 @staff_member_required
 def update_round_status(request, round_id):
@@ -71,11 +104,6 @@ def toggle_team_first_rank(request, round_id):
 # =========================================================
 # 점수 집계 (BE2 calculate_round 호출)
 # URL: /tutor/rounds/<round_id>/calculate/
-#
-# 학생 평가 + 튜터 평가가 모두 들어온 뒤 눌러야 하는 버튼.
-# calculate_round()는 팀 점수/개인 점수/최종 점수 중 하나라도
-# 계산이 안 되는 학생은 건너뛰고, 계산된 학생만 ScoreResult에
-# 저장한다. 그래서 "몇 명이 집계됐는지"를 돌려주는 게 중요하다.
 # =========================================================
 @staff_member_required
 def calculate_round_scores(request, round_id):
@@ -174,7 +202,6 @@ def team_build(request):
 
 # =========================================================
 # 팀 발표(평가) 시작 — Team.eval_opened_at 세팅
-# 확정된 규칙: 한 번 열리면 다른 팀이 열려도 안 닫힘(누적).
 # URL: /tutor/teams/<id>/open/
 # =========================================================
 @staff_member_required
@@ -194,11 +221,6 @@ def open_team_presentation(request, team_id):
 
 # =========================================================
 # 튜터 평가 공통 헬퍼
-#
-# TutorEvaluation은 팀 평가와 개인 평가를 한 테이블에 담는다.
-# scoring.services는 팀 점수를 team_id로만, 개인 점수를 user_id로만
-# 필터링하므로 한 행에 team/user를 동시에 채우면 양쪽에서 중복
-# 집계된다. 따라서 저장 시 반드시 둘 중 하나만 채운다.
 # =========================================================
 def _selected_round(request):
     round_id = request.GET.get("round_id") or request.POST.get("round_id")
@@ -300,7 +322,6 @@ def team_evaluation_form(request, team_id):
         team=target_team,
     ).first()
     existing_answers = existing.responses if existing else {}
-    # 템플릿에서는 변수 키로 dict 조회를 못 하므로 미리 값을 붙여서 넘긴다
     items = [
         {**item, "existing_value": existing_answers.get(item.get("key"))}
         for item in items
@@ -556,8 +577,6 @@ def evaluation_status(request):
         )
         total_students = members.count()
 
-        # 개인 상호평가는 팀원 전원을 한 번에 제출하는 구조라
-        # is_final=True 레코드가 하나라도 있으면 그 학생은 제출 완료로 본다
         submitted_ids = set(
             IndividualEvaluation.objects.filter(
                 round=round_obj, is_final=True
