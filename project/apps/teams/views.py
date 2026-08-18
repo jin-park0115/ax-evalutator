@@ -7,8 +7,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth import get_user_model
 
-from apps.evaluations.models import EvaluationRound
-from .models import Team, TeamMember, TeamUserScoreSeed
+from apps.evaluations.models import EvaluationRound, ScoreResult
+from .models import Team, TeamMember
 from .services import (
     get_students_by_percentiles, 
     assign_seed_based_teams, 
@@ -176,11 +176,13 @@ def get_percentile_preview(request):
     round_id = data.get("round_id")
     thresholds = data.get("thresholds", [30.0, 60.0])
     excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
+    window = data.get("window") or None  # None=전체 누적, 1/3/5=직전 N회차 평균
 
     groups = get_students_by_percentiles(
         target_round_id=round_id,
-        thresholds=thresholds, 
-        excluded_student_ids=excluded_student_ids
+        thresholds=thresholds,
+        excluded_student_ids=excluded_student_ids,
+        window=window,
     )
 
     return JsonResponse({"thresholds": thresholds, "groups": groups}, status=200)
@@ -199,6 +201,7 @@ def auto_assign_teams(request):
     thresholds = data.get("thresholds", [30.0, 60.0])
     fixed_student_ids = [int(sid) for sid in data.get("fixed_student_ids", [])]
     excluded_student_ids = [int(sid) for sid in data.get("excluded_student_ids", [])]
+    window = data.get("window") or None  # None=전체 누적, 1/3/5=직전 N회차 평균
 
     if not round_id:
         return JsonResponse({"error": "round_id는 필수입니다."}, status=400)
@@ -211,8 +214,13 @@ def auto_assign_teams(request):
             status=400,
         )
 
-    # 이전 회차 시드 기록 존재 여부 확인 (현재 회차 미만)
-    has_score_history = TeamUserScoreSeed.objects.filter(round_id__lt=target_round.id).exists()
+    # 이전(종료된) 회차에 점수 계산 결과가 있는지 확인.
+    # 원래는 TeamUserScoreSeed 존재 여부로 판단했는데, 그 테이블을 채우는
+    # 코드가 없어 항상 비어 있었다 — 실제 데이터가 쌓이는 ScoreResult
+    # 기준으로 바꿨다 (get_student_seed_scores와 동일한 데이터 소스).
+    has_score_history = ScoreResult.objects.filter(
+        round__status="finished", round_id__lt=target_round.id
+    ).exists()
 
     active_students = (
         User.objects.filter(role=User.Role.STUDENT, is_active=True)
@@ -236,8 +244,10 @@ def auto_assign_teams(request):
                 thresholds=thresholds,
                 fixed_student_ids=fixed_student_ids,
                 excluded_student_ids=excluded_student_ids,
+                window=window,
             )
-            msg = f"누적 시드 점수 기반(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
+            window_label = "전체 누적 평균" if not window else f"직전 {window}회차 평균"
+            msg = f"시드 점수 기반({window_label}, 제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 자동 편성이 완료되었습니다."
         else:
             existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
