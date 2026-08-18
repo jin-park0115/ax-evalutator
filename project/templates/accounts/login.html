@@ -27,6 +27,10 @@
           <button type="submit" class="btn btn-primary w-100">로그인</button>
         </form>
 
+        <p class="text-center text-muted small mt-3 mb-0">
+          아직 계정이 없으신가요? <a href="{% url 'signup' %}">회원가입</a>
+        </p>
+
         {% get_providers as socialaccount_providers %}
         {% if socialaccount_providers %}
         <hr class="my-4">

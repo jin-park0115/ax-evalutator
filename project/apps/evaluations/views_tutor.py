@@ -7,25 +7,41 @@ from apps.evaluations.models import EvaluationRound, EvaluationTemplate
 # =========================================================
 # 회차 관리 (실 DB 연동 완료)
 # URL: /tutor/rounds/
+#
+# 팀 수는 여기서 입력받지 않는다 — 실제 팀 수는 팀 편성 화면에서
+# 만들어진 Team 레코드 개수(round.teams.count)를 그대로 보여준다.
+# (팀 편성에서 자동/수동으로 몇 개 팀을 만들든 그게 곧 회차의
+# 팀 수가 되므로, 이중으로 값을 관리할 이유가 없다)
 # =========================================================
 @staff_member_required
 def round_list(request):
-    # 회차 생성
     if request.method == "POST":
+        round_id = request.POST.get("round_id")
         title = request.POST.get("title") or request.POST.get("name")
         start_date = request.POST.get("start_date") or request.POST.get("start_at")
         end_date = request.POST.get("end_date") or request.POST.get("end_at")
-        student_weight = request.POST.get("student_weight", 0.5)
-        tutor_weight = request.POST.get("tutor_weight", 0.5)
 
         if title and start_date and end_date:
-            EvaluationRound.objects.create(
-                name=title,
-                start_at=start_date,
-                end_at=end_date,
-                student_weight=float(student_weight),
-                tutor_weight=float(tutor_weight),
-            )
+            if round_id:
+                # 회차 수정
+                round_obj = get_object_or_404(EvaluationRound, id=round_id)
+                round_obj.name = title
+                round_obj.start_at = start_date
+                round_obj.end_at = end_date
+                round_obj.save(update_fields=["name", "start_at", "end_at"])
+                messages.success(request, f"[{title}] 회차가 수정되었습니다.")
+            else:
+                # 회차 생성
+                student_weight = request.POST.get("student_weight", 0.5)
+                tutor_weight = request.POST.get("tutor_weight", 0.5)
+                EvaluationRound.objects.create(
+                    name=title,
+                    start_at=start_date,
+                    end_at=end_date,
+                    student_weight=float(student_weight),
+                    tutor_weight=float(tutor_weight),
+                )
+                messages.success(request, f"[{title}] 회차가 생성되었습니다.")
             return redirect("tutor_rounds")
 
     # DB에서 전체 회차 조회
@@ -38,6 +54,19 @@ def round_list(request):
             "rounds": rounds,
         },
     )
+
+
+@staff_member_required
+def delete_round(request, round_id):
+    """회차 삭제. 팀/평가/집계 결과 등 연결된 데이터가 전부 함께
+    삭제된다(FK CASCADE) — 삭제 전 화면에서 반드시 경고 후 확인받는다."""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        name = round_obj.name
+        round_obj.delete()
+        messages.success(request, f"[{name}] 회차가 삭제되었습니다.")
+
+    return redirect("tutor_rounds")
 
 
 # =========================================================
@@ -203,6 +232,10 @@ def team_build(request):
 # =========================================================
 # 팀 발표(평가) 시작 — Team.eval_opened_at 세팅
 # URL: /tutor/teams/<id>/open/
+#
+# [수정] 팀 편성이 아직 확정(draft) 전이거나 팀원이 없는 팀은
+# 발표를 시작할 수 없도록 서버단에서 막는다. 원래는 아무 검증 없이
+# 편성 확정 전에도 발표 시작이 눌리는 문제가 있었다.
 # =========================================================
 @staff_member_required
 def open_team_presentation(request, team_id):
@@ -211,12 +244,27 @@ def open_team_presentation(request, team_id):
 
     if request.method == "POST":
         team = get_object_or_404(Team, id=team_id)
-        if not team.eval_opened_at:
+        round_obj = team.round
+
+        if round_obj.status == EvaluationRound.Status.DRAFT:
+            messages.error(
+                request,
+                "팀 편성이 아직 확정되지 않았습니다. 먼저 '팀 편성'에서 편성을 확정해주세요.",
+            )
+        elif team.members.count() == 0:
+            messages.error(
+                request,
+                f"{team.name}에 배정된 팀원이 없어 발표를 시작할 수 없습니다.",
+            )
+        elif not team.eval_opened_at:
             team.eval_opened_at = timezone.now()
             team.eval_status = Team.EvalStatus.OPEN
             team.save()
+            messages.success(request, f"{team.name} 발표가 시작되어 평가가 열렸습니다.")
 
-    return redirect(f"/tutor/team-build/?round_id={request.POST.get('round_id', '')}")
+        return redirect(f"/tutor/team-evaluation/?round_id={round_obj.id}")
+
+    return redirect("tutor_team_evaluation")
 
 
 # =========================================================
@@ -288,6 +336,7 @@ def team_evaluation(request):
                     "team": team,
                     "score": existing.score if existing else None,
                     "done": existing is not None,
+                    "member_count": team.members.count(),
                 }
             )
 
@@ -298,6 +347,10 @@ def team_evaluation(request):
             "round": round_obj,
             "rounds": EvaluationRound.objects.order_by("-id"),
             "evaluations": evaluations,
+            # 팀 편성이 확정(draft 이후)돼야 발표 시작 버튼을 노출한다
+            "formation_confirmed": bool(
+                round_obj and round_obj.status != EvaluationRound.Status.DRAFT
+            ),
         },
     )
 
