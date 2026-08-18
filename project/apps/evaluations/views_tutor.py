@@ -723,3 +723,57 @@ def evaluation_status(request):
             "non_submitters": non_submitters,
         },
     )
+
+
+# =========================================================
+# 전체 학생 성적 조회
+# URL: /tutor/students/scores/
+#
+# 회차별로 흩어져 있는 ScoreResult를 학생 단위로 모아
+# 참여 회차 수 / 평균 최종점수 / 최근 회차 점수·석차를 보여준다.
+# 아직 채점 결과가 없는 학생도 0점으로 목록에 포함한다.
+# =========================================================
+@staff_member_required
+def student_score_overview(request):
+    from django.contrib.auth import get_user_model
+    from apps.evaluations.models import ScoreResult
+
+    User = get_user_model()
+
+    results = (
+        ScoreResult.objects.filter(user__role=User.Role.STUDENT)
+        .select_related("round", "user")
+        .order_by("user_id", "-round_id")
+    )
+
+    by_student = {}
+    for result in results:
+        entry = by_student.setdefault(
+            result.user_id, {"student": result.user, "results": []}
+        )
+        entry["results"].append(result)
+
+    overview = []
+    for entry in by_student.values():
+        scores = [r.final_score for r in entry["results"] if r.final_score is not None]
+        overview.append(
+            {
+                "student": entry["student"],
+                "round_count": len(entry["results"]),
+                "avg_score": round(sum(scores) / len(scores), 2) if scores else 0.0,
+                "latest": entry["results"][0],
+            }
+        )
+
+    scored_ids = set(by_student.keys())
+    unscored_students = User.objects.filter(
+        role=User.Role.STUDENT, is_active=True
+    ).exclude(id__in=scored_ids)
+    for student in unscored_students:
+        overview.append(
+            {"student": student, "round_count": 0, "avg_score": 0.0, "latest": None}
+        )
+
+    overview.sort(key=lambda row: (-row["avg_score"], row["student"].username))
+
+    return render(request, "tutor/student_scores.html", {"overview": overview})

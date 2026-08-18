@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}전체 학생 성적{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">전체 학생 성적</h1>
+        <p class="text-muted mb-0">
+            모든 학생의 회차별 최종점수를 모아 참여 횟수, 평균 점수, 최근 회차 결과를 보여줍니다.
+        </p>
+    </div>
+
+    <div class="card">
+
+        <div class="card-header">
+            <strong>학생별 성적 요약</strong>
+            <span class="text-muted">({{ overview|length }}명, 평균 최종점수 높은 순)</span>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 60px;">순위</th>
+                            <th>이름</th>
+                            <th>이메일</th>
+                            <th>참여 회차</th>
+                            <th>평균 최종점수</th>
+                            <th>최근 회차</th>
+                            <th>최근 회차 최종점수</th>
+                            <th>최근 회차 석차</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for row in overview %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ row.student.username }}</td>
+                            <td>{{ row.student.email }}</td>
+                            <td>{{ row.round_count }}회</td>
+                            <td>
+                                {% if row.round_count %}
+                                <strong>{{ row.avg_score }}</strong>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% if row.latest %}
+                            <td>{{ row.latest.round.name }}</td>
+                            <td>{{ row.latest.final_score }}</td>
+                            <td>
+                                {% if row.latest.rank %}
+                                {{ row.latest.rank }}위
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% else %}
+                            <td colspan="3" class="text-muted">채점된 회차 없음</td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                학생이 없습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
