@@ -234,9 +234,9 @@
 
                         <tr>
                             <th>평가명</th>
-                            <th>과제명</th>
                             <th>기간</th>
                             <th>팀 수</th>
+                            <th>집계 결과</th>
                             <th>상태</th>
                             <th>관리</th>
                         </tr>
@@ -252,46 +252,46 @@
 
                             <!-- 평가명 -->
                             <td>
-                                {{ round.title }}
-                            </td>
-
-
-                            <!-- 과제명 -->
-                            <td>
-                                {{ round.assignment }}
+                                {{ round.name }}
                             </td>
 
 
                             <!-- 기간 -->
                             <td>
-                                {{ round.start_date }}
+                                {{ round.start_at|date:"Y-m-d" }}
                                 ~
-                                {{ round.end_date }}
+                                {{ round.end_at|date:"Y-m-d" }}
                             </td>
 
 
                             <!-- 팀 수 -->
                             <td>
-                                {{ round.team_count }}팀
+                                {{ round.teams.count }}팀
+                            </td>
+
+
+                            <!-- 집계 결과 -->
+                            <td>
+                                {% if round.score_results.count %}
+                                    <span class="badge text-bg-success">
+                                        {{ round.score_results.count }}명 집계됨
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">미집계</span>
+                                {% endif %}
                             </td>
 
 
                             <!-- 상태 -->
                             <td>
 
-                                {% if round.status == "대기" %}
-
-                                    <span class="badge text-bg-secondary">
-                                        대기
-                                    </span>
-
-                                {% elif round.status == "진행중" %}
+                                {% if round.status == "in_progress" %}
 
                                     <span class="badge text-bg-primary">
                                         진행중
                                     </span>
 
-                                {% elif round.status == "완료" %}
+                                {% elif round.status == "finished" %}
 
                                     <span class="badge text-bg-success">
                                         완료
@@ -300,7 +300,7 @@
                                 {% else %}
 
                                     <span class="badge text-bg-secondary">
-                                        {{ round.status }}
+                                        {{ round.get_status_display }}
                                     </span>
 
                                 {% endif %}
@@ -311,14 +311,21 @@
                             <!-- 관리 -->
                             <td>
 
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary"
-                                    data-round-id="{{ round.id }}"
-                                    onclick="showRoundDetail(this)"
+                                <form
+                                    method="post"
+                                    action="{% url 'calculate_round_scores' round.id %}"
+                                    class="d-inline m-0"
+                                    onsubmit="return confirm('학생 평가와 튜터 평가를 바탕으로 점수를 집계합니다.\n이미 집계된 결과가 있으면 새 값으로 갱신됩니다.\n\n계속할까요?');"
                                 >
-                                    보기
-                                </button>
+                                    {% csrf_token %}
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-sm btn-primary"
+                                    >
+                                        점수 집계
+                                    </button>
+                                </form>
 
                             </td>
 
@@ -432,23 +439,6 @@
 
     });
 
-
-    // =====================================
-    // 회차 보기
-    // =====================================
-
-    function showRoundDetail(button) {
-
-        const roundId =
-            button.dataset.roundId;
-
-
-        alert(
-            "회차 상세 화면 연결 예정입니다.\n\n" +
-            "회차 ID: " + roundId
-        );
-
-    }
 
 </script>
 

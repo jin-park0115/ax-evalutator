@@ -272,12 +272,17 @@ def peer_evaluation_form(request):
 
                 # save_peer_evaluations(user, round, answers)
                 # ← BE2 함수 나오면 아래 update_or_create() 블록을 그 함수 호출로 교체
+                #
+                # 조회 키는 uq_individual_evaluation_once 제약과 정확히 같은
+                # (round, evaluator, target)이어야 한다. team을 조회 키에 넣으면
+                # 학생이 회차 중 팀을 옮겼을 때 기존 행을 못 찾고 INSERT를 시도해
+                # 제약 위반(IntegrityError)이 난다. team은 갱신 대상으로만 둔다.
                 IndividualEvaluation.objects.update_or_create(
                     round=round_obj,
-                    team=my_team,
                     evaluator=request.user,
                     target=member.student,
                     defaults={
+                        "team": my_team,
                         "score": avg_score,
                         "responses": answers,
                         "is_final": False,
