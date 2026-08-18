@@ -240,9 +240,28 @@ def team_build(request):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    unassigned_students = User.objects.filter(role=User.Role.STUDENT).exclude(
-        id__in=assigned_ids
-    )
+    unassigned_students = User.objects.filter(
+        role=User.Role.STUDENT, is_active=True
+    ).exclude(id__in=assigned_ids)
+
+    # 편성 화면은 전부 브라우저(JS) 상태로 그리고, "편성 확정"을 눌러야만
+    # DB에 저장된다. 초기 화면을 채울 현재 DB 상태를 JSON으로 한 번에
+    # 넘겨준다 (json_script로 안전하게 이스케이프).
+    initial_state = {
+        "teams": {
+            team.name: {
+                "eval_opened": bool(team.eval_opened_at),
+                "members": [
+                    {"id": m.student.id, "username": m.student.username}
+                    for m in team.members.all()
+                ],
+            }
+            for team in teams
+        },
+        "unassigned": [
+            {"id": s.id, "username": s.username} for s in unassigned_students
+        ],
+    }
 
     return render(
         request,
@@ -254,6 +273,7 @@ def team_build(request):
             "unassigned_students": unassigned_students,
             "round_editable": is_round_editable(round_obj) if round_obj else False,
             "has_score_history": has_score_history,
+            "initial_state": initial_state,
         },
     )
 
@@ -269,8 +289,19 @@ def team_build(request):
 @staff_member_required
 def unlock_round_formation(request, round_id):
     if request.method == "POST":
+        from apps.teams.models import Team
+
         round_obj = get_object_or_404(EvaluationRound, id=round_id)
-        if round_obj.status == EvaluationRound.Status.READY:
+        has_eval_started = Team.objects.filter(
+            round=round_obj, eval_opened_at__isnull=False
+        ).exists()
+
+        if has_eval_started:
+            messages.error(request, "이미 발표(평가)가 시작되어 되돌릴 수 없습니다.")
+        elif round_obj.status in (
+            EvaluationRound.Status.READY,
+            EvaluationRound.Status.IN_PROGRESS,
+        ):
             round_obj.status = EvaluationRound.Status.DRAFT
             round_obj.save(update_fields=["status"])
             messages.success(request, "팀 편성을 다시 수정할 수 있습니다.")
@@ -618,16 +649,23 @@ def template_create(request):
             )
             return redirect("tutor_templates")
 
-    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 models.py에 이미
-    # [{"key","text"}, ...] 플랫 리스트로 정의돼 있고, 실제 평가 제출 화면
-    # (views_eval.py/views_tutor.py의 _get_template_items)도 이 형태를 그대로
-    # 읽는다 — 별도 변환 없이 그대로 사용한다.
+    # 실제 평가 제출 화면(views_eval.py/views_tutor.py의 _get_template_items)은
+    # criteria를 [{"key","text"}, ...] 플랫 리스트로만 읽는다. models.py의
+    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 {"scale","questions"}
+    # 딕셔너리 형태라 그대로 저장하면 평가 화면에 문항이 하나도 안 뜬다 —
+    # 여기서 질문 내용은 그대로 가져오되 실제로 쓰이는 플랫 형태로 변환한다.
+    def _to_flat_items(criteria):
+        return [
+            {"key": q["id"], "text": q["content"]}
+            for q in criteria["questions"]
+        ]
+
     default_items = {
-        "TEAM": DEFAULT_TEAM_CRITERIA,
-        "INDIVIDUAL": DEFAULT_INDIVIDUAL_CRITERIA,
+        "TEAM": _to_flat_items(DEFAULT_TEAM_CRITERIA),
+        "INDIVIDUAL": _to_flat_items(DEFAULT_INDIVIDUAL_CRITERIA),
         # 튜터 평가 기본값도 팀 평가와 같은 5문항 사용 (EvaluationTemplate.save()의
         # TUTOR 기본값 처리와 동일한 기준)
-        "TUTOR": DEFAULT_TEAM_CRITERIA,
+        "TUTOR": _to_flat_items(DEFAULT_TEAM_CRITERIA),
     }
 
     rounds = EvaluationRound.objects.order_by("-id")
