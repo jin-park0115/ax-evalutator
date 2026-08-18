@@ -214,5 +214,14 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // 페이지 상단 안내 메시지(.page-message)는 2.5초 후 자동으로
+    // fade out — Bootstrap의 dismiss 애니메이션을 그대로 이용
+    document.querySelectorAll('.page-message.alert-dismissible').forEach(function (el) {
+      setTimeout(function () {
+        bootstrap.Alert.getOrCreateInstance(el).close();
+      }, 2500);
+    });
+  </script>
 </body>
 </html>
