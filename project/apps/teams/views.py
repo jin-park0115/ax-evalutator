@@ -2,6 +2,7 @@ import json
 import random
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
+from django.contrib import messages
 from django.db import transaction
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
@@ -427,9 +428,14 @@ def confirm_team_assignment(request):
         target_round.status = EvaluationRound.Status.IN_PROGRESS
         target_round.save()
 
+    # JS는 이 응답을 받자마자 페이지를 새로고침하므로, 성공 알림은
+    # JsonResponse 바디가 아니라 messages 프레임워크로 남겨야 리로드된
+    # 페이지의 {% if messages %} 블록(base.html)에서 그대로 보여진다.
+    messages.success(request, f"{target_round.name} 팀 편성이 확정되어 저장되었습니다.")
+
     return JsonResponse(
         {
-            "message": f"{target_round.id}회차 팀 편성이 확정되어 저장되었습니다.",
+            "message": f"{target_round.name} 팀 편성이 확정되어 저장되었습니다.",
             "round_id": target_round.id,
             "status": target_round.status,
         },

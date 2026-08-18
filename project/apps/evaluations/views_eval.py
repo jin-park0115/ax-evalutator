@@ -213,7 +213,7 @@ def team_evaluation_form(request, team_id):
                 request,
                 f"{target_team.name} 팀 평가가 저장되었습니다.",
             )
-            return redirect("eval_team_list")
+            return redirect("student_home")
 
     return render(
         request,
@@ -431,7 +431,7 @@ def peer_evaluation_form(request):
             request,
             "개인 평가가 저장되었습니다.",
         )
-        return redirect("eval_peer_form")
+        return redirect("student_home")
 
     return render(
         request,
@@ -457,17 +457,29 @@ def submit_final(request):
             request,
             "현재 진행 중인 평가 회차가 없습니다.",
         )
-        return redirect("eval_team_list")
+        return redirect("student_home")
 
     if request.method != "POST":
-        return redirect("eval_team_list")
+        return redirect("student_home")
 
     if _has_finalized(request.user, round_obj):
         messages.error(
             request,
             "이미 최종 제출을 완료했습니다.",
         )
-        return redirect("eval_team_list")
+        return redirect("student_home")
+
+    # 팀 평가만 하고 팀원 평가는 하나도 안 쓴 채로(혹은 그 반대로) 제출해도
+    # 그때까지 저장된 것만 is_final=True로 바뀌어 그대로 통과해버리는 문제가
+    # 있었다 — 발표가 시작된 팀 전부 / 우리 팀원 전부에 대한 평가가 실제로
+    # 채워졌는지 먼저 확인한다.
+    progress = services.get_evaluation_progress(request.user, round_obj)
+    if not progress["is_complete"]:
+        messages.error(
+            request,
+            "아직 작성하지 않은 평가가 있습니다. 팀 평가와 팀원 평가를 모두 완료해야 최종 제출할 수 있습니다.",
+        )
+        return redirect("student_home")
 
     with transaction.atomic():
         TeamEvaluation.objects.filter(
@@ -487,4 +499,4 @@ def submit_final(request):
         "최종 제출이 완료되었습니다. 작성한 평가만 최종 제출 처리되며 이후 수정할 수 없습니다.",
     )
 
-    return redirect("eval_team_list")
+    return redirect("student_home")
