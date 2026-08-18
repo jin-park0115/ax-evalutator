@@ -41,15 +41,15 @@
 
             <label class="form-label">문항</label>
             <p class="text-muted small mb-2">
-                유형을 선택하면 기본 문항 5개가 자동으로 채워집니다. 필요하면 내용을 수정하거나 문항을 추가/삭제할 수 있습니다.
+                문항 칸이 비어있는 상태에서 유형을 선택하면 기본 문항 5개가 자동으로 채워집니다.
+                이미 직접 작성 중인 문항이 있으면 유형을 바꿔도 덮어쓰지 않습니다.
             </p>
             <div id="itemRows">
-                <div class="row g-2 mb-2 item-row">
-                    <div class="col-3">
-                        <input type="text" class="form-control" name="item_key" placeholder="key (예: quality)" required>
-                    </div>
-                    <div class="col-7">
+                <div class="row g-2 mb-2 item-row align-items-center">
+                    <div class="col-auto item-index fw-semibold" style="min-width: 42px;">Q1.</div>
+                    <div class="col">
                         <input type="text" class="form-control" name="item_text" placeholder="문항 내용 (예: 결과물 완성도)" required>
+                        <input type="hidden" name="item_key" value="q1">
                     </div>
                     <div class="col-2">
                         <button type="button" class="btn btn-outline-danger w-100 removeRowBtn">삭제</button>
@@ -76,29 +76,43 @@
     const typeSelect = document.getElementById("typeSelect");
     const defaultItems = JSON.parse(document.getElementById("defaultItemsData").textContent);
 
-    function rowTemplate(key, text) {
+    function rowTemplate(text) {
         const div = document.createElement("div");
-        div.className = "row g-2 mb-2 item-row";
+        div.className = "row g-2 mb-2 item-row align-items-center";
         div.innerHTML = `
-            <div class="col-3">
-                <input type="text" class="form-control" name="item_key" placeholder="key" required>
-            </div>
-            <div class="col-7">
+            <div class="col-auto item-index fw-semibold" style="min-width: 42px;"></div>
+            <div class="col">
                 <input type="text" class="form-control" name="item_text" placeholder="문항 내용" required>
+                <input type="hidden" name="item_key">
             </div>
             <div class="col-2">
                 <button type="button" class="btn btn-outline-danger w-100 removeRowBtn">삭제</button>
             </div>
         `;
-        if (key !== undefined) {
-            div.querySelector('[name="item_key"]').value = key;
+        if (text !== undefined) {
             div.querySelector('[name="item_text"]').value = text;
         }
         return div;
     }
 
+    // key는 사람이 정하지 않고 화면에 보이는 순서(Q1, Q2, ...) 그대로
+    // 자동 부여한다 — 유형마다 따로 key를 관리할 필요도, 겹칠 걱정도 없앰
+    function renumberRows() {
+        itemRows.querySelectorAll(".item-row").forEach(function (row, index) {
+            const n = index + 1;
+            row.querySelector(".item-index").textContent = `Q${n}.`;
+            row.querySelector('[name="item_key"]').value = `q${n}`;
+        });
+    }
+
+    function itemRowsAreEmpty() {
+        return Array.from(itemRows.querySelectorAll('[name="item_text"]'))
+            .every(function (input) { return input.value.trim() === ""; });
+    }
+
     addRowBtn.addEventListener("click", function () {
         itemRows.appendChild(rowTemplate());
+        renumberRows();
     });
 
     itemRows.addEventListener("click", function (event) {
@@ -106,20 +120,28 @@
             const rows = itemRows.querySelectorAll(".item-row");
             if (rows.length > 1) {
                 event.target.closest(".item-row").remove();
+                renumberRows();
             }
         }
     });
 
-    // 유형을 선택하면 해당 유형의 기본 문항 5개로 채워준다 (수정/추가/삭제는 계속 가능)
+    // 문항 칸이 비어있을 때만 유형의 기본 문항 5개로 채운다 — 튜터가 이미
+    // 직접 문항을 쓰고 있는 중이면(예: 1개만 쓰고 싶을 때) 유형을 눌러도
+    // 그 내용을 덮어쓰지 않는다.
     typeSelect.addEventListener("change", function () {
+        if (!itemRowsAreEmpty()) return;
+
         const items = defaultItems[this.value];
         if (!items || items.length === 0) return;
 
         itemRows.innerHTML = "";
         items.forEach(function (item) {
-            itemRows.appendChild(rowTemplate(item.key, item.text));
+            itemRows.appendChild(rowTemplate(item.text));
         });
+        renumberRows();
     });
+
+    renumberRows();
 </script>
 
 {% endblock %}
