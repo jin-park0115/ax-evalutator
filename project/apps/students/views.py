@@ -1,5 +1,13 @@
+import json
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.http import require_http_methods
+
+User = get_user_model()
+
 
 @login_required
 def student_home(request):
@@ -43,9 +51,27 @@ def student_result(request):
 
 def get_my_team(user):
     from apps.teams.models import TeamMember
+    from apps.evaluations.models import EvaluationRound
 
-    # Student 모델 제거 -> user를 직접 FK로 조회
-    tm = TeamMember.objects.select_related("team").filter(student=user).first()
+    # 1. 진행 중(IN_PROGRESS)이거나 확정된 회차 가져오기
+    active_round = (
+        EvaluationRound.objects
+        .filter(status=EvaluationRound.Status.IN_PROGRESS)
+        .order_by("-id")
+        .first()
+    )
+
+    # 2. 회차가 없거나, 작성 중(DRAFT) 상태라면 학생에게 팀을 안 보여줌
+    if not active_round:
+        return None, []
+
+    # 3. 해당 회차에 속한 팀원 정보만 조회
+    tm = (
+        TeamMember.objects.select_related("team")
+        .filter(student=user, team__round=active_round)
+        .first()
+    )
+    
     if not tm:
         return None, []
 
@@ -59,19 +85,6 @@ def get_my_team(user):
 
 
 def get_visible_result(user):
-    """get_visible_result(user, round) 계약.
-
-    [수정] team_first(1위 팀명), team_rankings(전체 팀 순위 목록)를 새로 채웠다.
-    기존 team_score/personal_score/final_score/rank 4개 필드는 손대지 않았다.
-
-    - team_first: round.team_first_rank_visible이 켜져 있을 때만 1위 팀 이름
-    - team_rankings: round.team_rank_visible이 켜져 있을 때만 전체 팀 순위 목록
-      (각 항목: {"team_name": str, "score": float, "rank": int})
-
-    팀 순위는 apps.scoring.services.calculate_team_rankings()를 그대로 쓴다.
-    이 회차의 ScoreResult에서 팀별 team_score를 모아서 그 자리에서 계산한다
-    (팀 순위를 저장하는 별도 테이블/필드가 아직 없기 때문 — 매번 계산).
-    """
     from apps.evaluations.models import EvaluationRound, ScoreResult
     from apps.scoring.services import calculate_team_rankings
 
@@ -93,8 +106,6 @@ def get_visible_result(user):
     team_first = None
     team_rankings = None
 
-    # 둘 중 하나라도 공개 설정이 켜져 있을 때만 팀 순위를 계산한다
-    # (꺼져 있으면 계산 자체가 필요 없음)
     if round_obj.team_first_rank_visible or round_obj.team_rank_visible:
         team_rows = (
             ScoreResult.objects.filter(round=round_obj)
@@ -111,7 +122,6 @@ def get_visible_result(user):
 
         if team_scores:
             rankings = calculate_team_rankings(team_scores, team_names)
-            # rankings: [(team_id, team_score, rank), ...]
 
             if round_obj.team_first_rank_visible:
                 first_place = next(
@@ -145,15 +155,6 @@ def get_visible_result(user):
 # ==========================================
 # 관리자 전용 수강생 관리 API
 # ==========================================
-import json
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
-from django.contrib.admin.views.decorators import staff_member_required
-from django.views.decorators.http import require_http_methods
-
-User = get_user_model()
-
 
 @staff_member_required
 @require_http_methods(["GET"])
