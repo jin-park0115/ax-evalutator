@@ -14,8 +14,8 @@
 # - 학생이 "최종 제출"을 누르는 순간 그 학생의 해당 회차 답변 전체가
 #   한 번에 is_final=True로 잠긴다. 그 전까지는 팀별 개별 제출/잠금이 없다.
 
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -170,9 +170,6 @@ def team_evaluation_form(request, team_id):
             scores = list(answers.values())
             avg_score = sum(scores) / len(scores)
 
-            # [수정] update_or_create 직접 호출 → services.save_team_evaluation로 교체.
-            # 이 함수 안에서 자기 팀 여부·발표 오픈 여부·점수 범위·최종 제출 여부를
-            # 다시 한 번 검증하고, 기존 임시저장이 있으면 갱신, 없으면 새로 만든다.
             try:
                 services.save_team_evaluation(
                     round_id=round_obj.id,
@@ -252,8 +249,11 @@ def peer_evaluation_form(request):
             messages.error(request, "이미 최종 제출을 완료해 수정할 수 없습니다.")
             return redirect("eval_peer_form")
 
+        if not my_team:
+            messages.error(request, "소속된 팀이 없어 개인 평가를 진행할 수 없습니다.")
+            return redirect("eval_peer_form")
+
         # 1단계 — 먼저 팀원 전원의 답변을 걷어서 문항 누락만 검증한다.
-        # (기존 로직 그대로: 이 단계에서 걸리면 아직 아무것도 저장하지 않은 상태)
         member_answers = {}
         for member in members:
             answers = {}
@@ -279,11 +279,7 @@ def peer_evaluation_form(request):
                 )
             member_answers[member] = answers
 
-        # 2단계 — [수정] 문항 누락이 없으면 실제 저장.
-        # update_or_create 직접 호출 → services.save_individual_evaluation로 교체.
-        # 전체를 transaction.atomic()으로 묶어서, 팀원 중 한 명이라도 서비스
-        # 검증(같은 팀 여부 등)에 걸리면 이미 저장된 다른 팀원 분까지 전부
-        # 롤백되어 부분 저장이 남지 않는다.
+        # 2단계 — 문항 누락이 없으면 실제 저장.
         try:
             with transaction.atomic():
                 for member, answers in member_answers.items():
