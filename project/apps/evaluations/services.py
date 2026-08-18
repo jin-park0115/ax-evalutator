@@ -38,12 +38,13 @@ def save_team_evaluation(
     score: int,
     responses: dict | None = None,
     is_final: bool = False,
-) -> TeamEvaluation:
+) -> "TeamEvaluation":
     """
     학생의 팀평가를 임시저장하거나 최종 제출한다.
 
     - 자기 팀 평가 금지
     - 같은 평가 회차의 팀만 평가 가능
+    - 발표가 시작된(eval_opened_at이 설정된) 팀만 평가 가능 ← [수정] 새로 추가
     - 점수는 1~5점
     - 기존 임시저장 평가가 있으면 수정
     - 최종 제출된 평가는 수정 불가
@@ -60,6 +61,12 @@ def save_team_evaluation(
         )
     except Team.DoesNotExist:
         raise ValueError("해당 평가 회차에 존재하지 않는 팀입니다.")
+
+    # 1-1. [수정] 발표가 시작된 팀만 평가 가능 (2026-08-17 팀 합의 — 누적 오픈)
+    #      팀 평가 목록/화면 단에서만 막고 있었고, 서버 저장 단에는 이 체크가
+    #      빠져 있었던 부분. URL 직접 호출로 우회 저장되는 걸 여기서 막는다.
+    if target_team.eval_opened_at is None:
+        raise ValueError("아직 발표가 시작되지 않은 팀입니다.")
 
     # 2. 평가자의 팀 확인
     membership = (
@@ -145,10 +152,10 @@ def save_individual_evaluation(
     학생이 다른 학생을 평가한다.
 
     - 자기 자신 평가 금지
+    - 같은 팀 구성원만 평가 가능 (BR-02/03) ← [수정] 새로 추가
     - 점수는 1~5점
-    - 평가자와 대상자는 같은 평가 회차의 학생이어야 함
-    - 임시저장 가능
-    - 임시저장된 평가는 수정 가능
+    - 평가자와 대상자는 같은 평가 회차의 "같은 팀" 학생이어야 함
+    - 임시저장 가능, 최종 제출 전까지 수정 가능
     - 최종 제출된 평가는 수정 불가
     """
 
@@ -196,6 +203,18 @@ def save_individual_evaluation(
 
     if target_membership is None:
         raise ValueError("평가 대상자가 해당 평가 회차에 소속되어 있지 않습니다.")
+
+    # 5-1. [수정] BR-02/03 — 평가자와 대상자가 "같은 팀"인지 확인
+    #      기존 코드는 두 사람이 "이 회차 어딘가에" 소속돼 있는지만 봤고,
+    #      같은 팀인지는 확인하지 않았다. 그래서 다른 팀 사람도 개인 평가
+    #      대상으로 저장이 가능했던 것이 실제 버그였다.
+    if evaluator_membership.team_id != target_membership.team_id:
+        raise ValueError("같은 팀 구성원만 개인 평가할 수 있습니다.")
+
+    # 5-2. [수정] 호출 시 넘어온 team_id가 실제 소속 팀과 다르면 거부
+    #      (프론트가 잘못된 team_id를 보내는 경우까지 서버 단에서 막는다)
+    if evaluator_membership.team_id != team_id:
+        raise ValueError("본인이 속하지 않은 팀 기준으로는 저장할 수 없습니다.")
 
     # 6. 기존 평가 확인 및 저장
     with transaction.atomic():

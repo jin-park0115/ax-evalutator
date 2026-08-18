@@ -1,11 +1,14 @@
 # apps/evaluations/views_eval.py
-# BE2(전예진) 담당 서비스 함수가 아직 없어서, 계약(get_evaluable_teams 등)에
-# 맞춰 실제 모델을 직접 조회/저장하는 임시 구현. BE2 함수가 나오면
-# 표시된 지점만 그 함수 호출로 교체하면 된다.
+#
+# 서비스 함수(services.py의 save_team_evaluation,
+# save_individual_evaluation)가 완성되어, 저장 로직을 그 함수 호출로
+# 교체했다. 화면단(목록 조회, 폼 렌더링, 문항 누락 검증)은 기존 그대로다.
 #
 # 확정된 규칙 (2026-08-17, 채희주/전예진/안형준 합의):
 # - 팀 발표 순서대로 평가가 "누적" 오픈된다. 1조 발표 시 1조만 열리고,
 #   2조 발표 시 1조는 열린 채로 2조도 함께 열린다 (닫히지 않음).
+#   → 화면 목록 단(eval_opened_at__isnull=False)과 서버 저장 단
+#     (save_team_evaluation 내부) 양쪽에서 이중으로 막는다.
 # - 열려 있는 동안은 임시저장/수정이 자유롭다 (TeamEvaluation/
 #   IndividualEvaluation.is_final=False).
 # - 학생이 "최종 제출"을 누르는 순간 그 학생의 해당 회차 답변 전체가
@@ -16,6 +19,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.evaluations import services
 from apps.evaluations.models import (
     EvaluationRound,
     EvaluationTemplate,
@@ -119,7 +123,10 @@ def team_evaluation_list(request):
 @login_required
 def team_evaluation_form(request, team_id):
     """get_template_items + save_team_evaluation(user, round, target_team, answers) 계약
-    — 최종 제출 전까지는 임시저장(is_final=False)이라 여러 번 다시 열어 수정 가능."""
+    — 최종 제출 전까지는 임시저장(is_final=False)이라 여러 번 다시 열어 수정 가능.
+    — 자기 팀 여부/발표 오픈 여부/최종 제출 여부는 화면 단에서 먼저 안내하고,
+      실제 저장 시에는 services.save_team_evaluation 안에서 다시 한 번 검증한다
+      (URL 직접 호출로 우회하는 경우까지 서버 단에서 막기 위함)."""
     round_obj = _current_round()
     target_team = get_object_or_404(Team, id=team_id)
     my_team = _get_my_team(request.user, round_obj)
@@ -163,20 +170,22 @@ def team_evaluation_form(request, team_id):
             scores = list(answers.values())
             avg_score = sum(scores) / len(scores)
 
-            with transaction.atomic():
-                # save_team_evaluation(user, round, target_team, answers)
-                # ← BE2 함수 나오면 아래 update_or_create() 블록을 그 함수 호출로 교체
-                TeamEvaluation.objects.update_or_create(
-                    round=round_obj,
-                    submitted_by=request.user,
-                    target_team=target_team,
-                    defaults={
-                        "evaluator_team": my_team,
-                        "score": avg_score,
-                        "responses": answers,
-                        "is_final": False,
-                    },
+            # [수정] update_or_create 직접 호출 → services.save_team_evaluation로 교체.
+            # 이 함수 안에서 자기 팀 여부·발표 오픈 여부·점수 범위·최종 제출 여부를
+            # 다시 한 번 검증하고, 기존 임시저장이 있으면 갱신, 없으면 새로 만든다.
+            try:
+                services.save_team_evaluation(
+                    round_id=round_obj.id,
+                    evaluator_id=request.user.id,
+                    target_team_id=target_team.id,
+                    score=avg_score,
+                    responses=answers,
+                    is_final=False,
                 )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect("eval_team_list")
+
             messages.success(request, f"{target_team.name} 평가가 임시저장되었습니다.")
             return redirect("eval_team_list")
 
@@ -243,51 +252,64 @@ def peer_evaluation_form(request):
             messages.error(request, "이미 최종 제출을 완료해 수정할 수 없습니다.")
             return redirect("eval_peer_form")
 
-        with transaction.atomic():
-            for member in members:
-                answers = {}
-                for item in items:
-                    key = item.get("key")
-                    value = request.POST.get(f"item_{member.student.id}_{key}")
-                    if value:
-                        answers[key] = int(value)
+        # 1단계 — 먼저 팀원 전원의 답변을 걷어서 문항 누락만 검증한다.
+        # (기존 로직 그대로: 이 단계에서 걸리면 아직 아무것도 저장하지 않은 상태)
+        member_answers = {}
+        for member in members:
+            answers = {}
+            for item in items:
+                key = item.get("key")
+                value = request.POST.get(f"item_{member.student.id}_{key}")
+                if value:
+                    answers[key] = int(value)
 
-                if not items or len(answers) != len(items):
-                    messages.error(
-                        request,
-                        f"{member.student.username}님에 대한 모든 문항에 응답해야 합니다.",
-                    )
-                    return render(
-                        request,
-                        "eval/peer_evaluation_form.html",
-                        {
-                            "round": round_obj,
-                            "member_rows": _build_member_rows(members, items, existing_answers),
-                            "finalized": finalized,
-                        },
-                    )
-
-                scores = list(answers.values())
-                avg_score = sum(scores) / len(scores)
-
-                # save_peer_evaluations(user, round, answers)
-                # ← BE2 함수 나오면 아래 update_or_create() 블록을 그 함수 호출로 교체
-                #
-                # 조회 키는 uq_individual_evaluation_once 제약과 정확히 같은
-                # (round, evaluator, target)이어야 한다. team을 조회 키에 넣으면
-                # 학생이 회차 중 팀을 옮겼을 때 기존 행을 못 찾고 INSERT를 시도해
-                # 제약 위반(IntegrityError)이 난다. team은 갱신 대상으로만 둔다.
-                IndividualEvaluation.objects.update_or_create(
-                    round=round_obj,
-                    evaluator=request.user,
-                    target=member.student,
-                    defaults={
-                        "team": my_team,
-                        "score": avg_score,
-                        "responses": answers,
-                        "is_final": False,
+            if not items or len(answers) != len(items):
+                messages.error(
+                    request,
+                    f"{member.student.username}님에 대한 모든 문항에 응답해야 합니다.",
+                )
+                return render(
+                    request,
+                    "eval/peer_evaluation_form.html",
+                    {
+                        "round": round_obj,
+                        "member_rows": _build_member_rows(members, items, existing_answers),
+                        "finalized": finalized,
                     },
                 )
+            member_answers[member] = answers
+
+        # 2단계 — [수정] 문항 누락이 없으면 실제 저장.
+        # update_or_create 직접 호출 → services.save_individual_evaluation로 교체.
+        # 전체를 transaction.atomic()으로 묶어서, 팀원 중 한 명이라도 서비스
+        # 검증(같은 팀 여부 등)에 걸리면 이미 저장된 다른 팀원 분까지 전부
+        # 롤백되어 부분 저장이 남지 않는다.
+        try:
+            with transaction.atomic():
+                for member, answers in member_answers.items():
+                    scores = list(answers.values())
+                    avg_score = sum(scores) / len(scores)
+
+                    services.save_individual_evaluation(
+                        round_id=round_obj.id,
+                        team_id=my_team.id,
+                        evaluator_id=request.user.id,
+                        target_id=member.student.id,
+                        score=avg_score,
+                        responses=answers,
+                        is_final=False,
+                    )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return render(
+                request,
+                "eval/peer_evaluation_form.html",
+                {
+                    "round": round_obj,
+                    "member_rows": _build_member_rows(members, items, existing_answers),
+                    "finalized": finalized,
+                },
+            )
 
         messages.success(request, "개인 상호평가가 임시저장되었습니다.")
         return redirect("eval_peer_form")
