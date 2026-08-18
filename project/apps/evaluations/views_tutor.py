@@ -69,6 +69,60 @@ def toggle_team_first_rank(request, round_id):
 
 
 # =========================================================
+# 점수 집계 (BE2 calculate_round 호출)
+# URL: /tutor/rounds/<round_id>/calculate/
+#
+# 학생 평가 + 튜터 평가가 모두 들어온 뒤 눌러야 하는 버튼.
+# calculate_round()는 팀 점수/개인 점수/최종 점수 중 하나라도
+# 계산이 안 되는 학생은 건너뛰고, 계산된 학생만 ScoreResult에
+# 저장한다. 그래서 "몇 명이 집계됐는지"를 돌려주는 게 중요하다.
+# =========================================================
+@staff_member_required
+def calculate_round_scores(request, round_id):
+    from apps.teams.models import TeamMember
+    from apps.scoring.services import calculate_round
+
+    round_obj = get_object_or_404(EvaluationRound, id=round_id)
+
+    if request.method != "POST":
+        return redirect("tutor_rounds")
+
+    total_students = TeamMember.objects.filter(team__round=round_obj).count()
+
+    if total_students == 0:
+        messages.error(
+            request,
+            f"[{round_obj.name}] 팀에 배정된 학생이 없어 집계할 수 없습니다. "
+            "먼저 팀 편성을 완료해주세요.",
+        )
+        return redirect("tutor_rounds")
+
+    saved = calculate_round(round_obj)
+    saved_count = len(saved)
+    skipped = total_students - saved_count
+
+    if saved_count == 0:
+        messages.error(
+            request,
+            f"[{round_obj.name}] 집계된 학생이 없습니다. "
+            "학생 평가와 튜터 평가가 모두 등록되어야 점수가 계산됩니다.",
+        )
+    elif skipped > 0:
+        messages.warning(
+            request,
+            f"[{round_obj.name}] {saved_count}명 집계 완료. "
+            f"{skipped}명은 평가 데이터가 부족해 제외되었습니다.",
+        )
+    else:
+        messages.success(
+            request,
+            f"[{round_obj.name}] 전체 {saved_count}명의 점수 집계가 완료되었습니다.",
+        )
+
+    return redirect("tutor_rounds")
+
+
+# =========================================================
 # 팀 편성 (실 DB 연동 — apps/teams의 실제 API와 연결)
 # URL: /tutor/team-build/
 # =========================================================
