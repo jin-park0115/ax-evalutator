@@ -32,6 +32,11 @@ urlpatterns = [
         views_tutor.delete_round,
         name="delete_round",
     ),
+    path(
+        "tutor/rounds/<int:round_id>/unlock-formation/",
+        views_tutor.unlock_round_formation,
+        name="unlock_round_formation",
+    ),
 
     # 학생 평가 경로(/student/evaluation/*)는 views_eval.py의 /eval/* 플로우로
     # 일원화하면서 제거했다 (2026-08-18, 전예진/안형준 합의).

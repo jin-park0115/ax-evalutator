@@ -38,7 +38,13 @@ def calculate_optimal_team_count(total_students):
 def is_round_editable(target_round):
     # EvaluationRound.Status 값은 소문자("draft","ready","in_progress","finished")인데
     # 대문자 목록과 비교하고 있어서 항상 False가 나오던 버그 수정
-    editable_statuses = [EvaluationRound.Status.DRAFT, EvaluationRound.Status.READY]
+    #
+    # [수정] 원래는 READY(편성 확정 후)도 편집 가능 목록에 있었는데,
+    # "편성 확정" 버튼 자체의 확인창은 "확정하면 더 이상 수정할 수
+    # 없습니다"라고 안내하면서 실제로는 계속 수정 가능했던 모순이
+    # 있었다. 확정(READY) 후에는 잠기고, 다시 열려면 명시적으로
+    # "수정"을 눌러 draft로 되돌려야 편집 가능하도록 변경.
+    editable_statuses = [EvaluationRound.Status.DRAFT]
     return getattr(target_round, "status", EvaluationRound.Status.DRAFT) in editable_statuses
 
 

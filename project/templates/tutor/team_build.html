@@ -19,6 +19,7 @@
             {% endfor %}
         </select>
 
+        {% if round_editable %}
         <input type="number" class="form-control form-control-sm" id="teamCountInput"
                placeholder="팀 수(자동)" style="width: 120px;" min="1">
 
@@ -37,6 +38,16 @@
         <button type="button" class="btn btn-success" id="confirmBtn">
             편성 확정
         </button>
+        {% elif round.status == "ready" %}
+        <!-- 편성 확정된 상태 — 팀 수/자동편성 등은 잠기고, "수정"을 눌러야 다시 편집 가능 -->
+        <form method="post" action="{% url 'unlock_round_formation' round.id %}" class="d-inline m-0"
+              onsubmit="return confirm('편성을 다시 수정 상태로 되돌립니다. 계속할까요?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary">
+                수정
+            </button>
+        </form>
+        {% endif %}
     </div>
 </div>
 

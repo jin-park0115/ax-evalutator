@@ -202,6 +202,32 @@ def team_build(request):
 
 
 # =========================================================
+# 팀 편성 잠금 해제 ("수정" 버튼) — ready -> draft로 되돌려
+# is_round_editable이 다시 True가 되게 한다.
+# 편성 확정(ready) 상태에서만 허용 — 발표가 이미 시작됐거나
+# 회차가 진행 중/종료된 뒤에 팀 구성을 바꾸면 이미 제출된 평가와
+# 어긋나므로 그 경우는 막는다.
+# URL: /tutor/rounds/<round_id>/unlock-formation/
+# =========================================================
+@staff_member_required
+def unlock_round_formation(request, round_id):
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        if round_obj.status == EvaluationRound.Status.READY:
+            round_obj.status = EvaluationRound.Status.DRAFT
+            round_obj.save(update_fields=["status"])
+            messages.success(request, "팀 편성을 다시 수정할 수 있습니다.")
+        else:
+            messages.error(
+                request,
+                f"현재 상태({round_obj.get_status_display()})에서는 수정할 수 없습니다.",
+            )
+        return redirect(f"/tutor/team-build/?round_id={round_obj.id}")
+
+    return redirect("tutor_team_build")
+
+
+# =========================================================
 # 팀 발표(평가) 시작 — Team.eval_opened_at 세팅
 # 확정된 규칙: 한 번 열리면 다른 팀이 열려도 안 닫힘(누적).
 # URL: /tutor/teams/<id>/open/
