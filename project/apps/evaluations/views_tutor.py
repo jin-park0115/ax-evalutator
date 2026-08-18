@@ -1,7 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from apps.evaluations.models import EvaluationRound, EvaluationTemplate
+from apps.evaluations.models import (
+    EvaluationRound,
+    EvaluationTemplate,
+    DEFAULT_TEAM_CRITERIA,
+    DEFAULT_INDIVIDUAL_CRITERIA,
+)
 
 
 # =========================================================
@@ -613,23 +618,23 @@ def template_create(request):
             )
             return redirect("tutor_templates")
 
+    # 실제 평가 제출 화면(views_eval.py/views_tutor.py의 _get_template_items)은
+    # criteria를 [{"key","text"}, ...] 플랫 리스트로만 읽는다. models.py의
+    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 {"scale","questions"}
+    # 딕셔너리 형태라 그대로 저장하면 평가 화면에 문항이 하나도 안 뜬다 —
+    # 여기서 질문 내용은 그대로 가져오되 실제로 쓰이는 플랫 형태로 변환한다.
+    def _to_flat_items(criteria):
+        return [
+            {"key": q["id"], "text": q["content"]}
+            for q in criteria["questions"]
+        ]
+
     default_items = {
-        "TEAM": [
-            {"key": "quality", "text": "결과물 완성도"},
-            {"key": "contribution", "text": "팀 기여도"},
-            {"key": "cooperation", "text": "협업 및 소통"},
-            {"key": "presentation", "text": "발표 및 전달력"},
-        ],
-        "INDIVIDUAL": [
-            {"key": "attitude", "text": "참여 태도 및 성실성"},
-            {"key": "task_completion", "text": "맡은 역할 수행도"},
-            {"key": "communication", "text": "팀원 간 커뮤니케이션"},
-        ],
-        "TUTOR": [
-            {"key": "understanding", "text": "주제 이해도 및 기술성"},
-            {"key": "output", "text": "최종 결과물 우수성"},
-            {"key": "growth", "text": "프로젝트 발전 가능성"},
-        ],
+        "TEAM": _to_flat_items(DEFAULT_TEAM_CRITERIA),
+        "INDIVIDUAL": _to_flat_items(DEFAULT_INDIVIDUAL_CRITERIA),
+        # 튜터 평가 기본값도 팀 평가와 같은 5문항 사용 (EvaluationTemplate.save()의
+        # TUTOR 기본값 처리와 동일한 기준)
+        "TUTOR": _to_flat_items(DEFAULT_TEAM_CRITERIA),
     }
 
     rounds = EvaluationRound.objects.order_by("-id")

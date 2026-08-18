@@ -10,6 +10,8 @@
 <div class="card">
     <div class="card-body">
 
+        {{ default_items|json_script:"defaultItemsData" }}
+
         <form method="post" id="templateForm">
             {% csrf_token %}
 
@@ -27,7 +29,7 @@
 
                 <div class="col-md-6">
                     <label class="form-label">유형</label>
-                    <select class="form-select" name="type" required>
+                    <select class="form-select" name="type" id="typeSelect" required>
                         <option value="" disabled selected>선택하세요</option>
                         {% for value, label in types %}
                         <option value="{{ value }}">{{ label }}</option>
@@ -38,6 +40,9 @@
             </div>
 
             <label class="form-label">문항</label>
+            <p class="text-muted small mb-2">
+                유형을 선택하면 기본 문항 5개가 자동으로 채워집니다. 필요하면 내용을 수정하거나 문항을 추가/삭제할 수 있습니다.
+            </p>
             <div id="itemRows">
                 <div class="row g-2 mb-2 item-row">
                     <div class="col-3">
@@ -68,8 +73,10 @@
 <script>
     const itemRows = document.getElementById("itemRows");
     const addRowBtn = document.getElementById("addRowBtn");
+    const typeSelect = document.getElementById("typeSelect");
+    const defaultItems = JSON.parse(document.getElementById("defaultItemsData").textContent);
 
-    function rowTemplate() {
+    function rowTemplate(key, text) {
         const div = document.createElement("div");
         div.className = "row g-2 mb-2 item-row";
         div.innerHTML = `
@@ -83,6 +90,10 @@
                 <button type="button" class="btn btn-outline-danger w-100 removeRowBtn">삭제</button>
             </div>
         `;
+        if (key !== undefined) {
+            div.querySelector('[name="item_key"]').value = key;
+            div.querySelector('[name="item_text"]').value = text;
+        }
         return div;
     }
 
@@ -97,6 +108,17 @@
                 event.target.closest(".item-row").remove();
             }
         }
+    });
+
+    // 유형을 선택하면 해당 유형의 기본 문항 5개로 채워준다 (수정/추가/삭제는 계속 가능)
+    typeSelect.addEventListener("change", function () {
+        const items = defaultItems[this.value];
+        if (!items || items.length === 0) return;
+
+        itemRows.innerHTML = "";
+        items.forEach(function (item) {
+            itemRows.appendChild(rowTemplate(item.key, item.text));
+        });
     });
 </script>
 
