@@ -4,7 +4,7 @@ from apps.evaluations.models import (
     TutorEvaluation,
     ScoreResult,
 )
-from apps.teams.models import TeamMember, TeamUserScoreSeed
+from apps.teams.models import Team, TeamMember, TeamUserScoreSeed
 
 
 def calculate_seed_scores(
@@ -93,28 +93,62 @@ def calculate_rankings(
 
 
 def calculate_team_rankings(
-    team_scores: dict[int, float],
-    team_names: dict[int, str],
-) -> list[tuple[int, float, int]]:
+    team_scores_or_round,
+    team_names: dict[int, str] | None = None,
+) -> list[dict]:
     """
     팀별 점수를 받아 팀 순위를 계산한다.
-
-    점수가 높은 팀이 높은 순위를 가진다.
-    같은 점수인 팀은 같은 순위를 사용한다.
-    동점일 경우 팀 이름을 보조 정렬 기준으로 사용한다.
-
-    반환값:
-        [
-            (team_id, team_score, rank),
-            ...
-        ]
+    dict 인자 또는 round 객체/ID를 넘겨받아도 처리 가능하도록 호환성 제공.
     """
+    # 1. Round 객체나 round_id가 들어온 경우 DB에서 즉시 조회하여 계산
+    if not isinstance(team_scores_or_round, dict):
+        round_obj = team_scores_or_round
+        round_id = round_obj.id if hasattr(round_obj, 'id') else round_obj
+        
+        teams = Team.objects.filter(round_id=round_id)
+        team_scores = {}
+        team_names_dict = {}
+        
+        for team in teams:
+            score = get_team_score_from_db(round_id, team.id)
+            if score is not None:
+                team_scores[team.id] = score
+                team_names_dict[team.id] = team.name
+
+        if not team_scores:
+            return []
+
+        sorted_team_ids = sorted(
+            team_scores.keys(),
+            key=lambda t_id: (-team_scores[t_id], team_names_dict[t_id]),
+        )
+
+        rankings = []
+        for index, t_id in enumerate(sorted_team_ids):
+            score = team_scores[t_id]
+            if index > 0 and score == team_scores[sorted_team_ids[index - 1]]:
+                rank = rankings[index - 1]["rank"]
+            else:
+                rank = index + 1
+
+            rankings.append({
+                "team_id": t_id,
+                "team_name": team_names_dict[t_id],
+                "score": score,
+                "rank": rank,
+            })
+        return rankings
+
+    # 2. 기존 방식 (dict, dict 인자로 전달받은 경우)
+    team_scores = team_scores_or_round
+    if team_names is None:
+        team_names = {}
 
     sorted_team_ids = sorted(
         team_scores.keys(),
         key=lambda team_id: (
             -team_scores[team_id],
-            team_names[team_id],
+            team_names.get(team_id, ""),
         ),
     )
 
