@@ -205,6 +205,10 @@ def team_build(request):
 # 팀 발표(평가) 시작 — Team.eval_opened_at 세팅
 # 확정된 규칙: 한 번 열리면 다른 팀이 열려도 안 닫힘(누적).
 # URL: /tutor/teams/<id>/open/
+#
+# [수정] 팀 편성이 아직 확정(draft) 전이거나 팀원이 없는 팀은
+# 발표를 시작할 수 없도록 서버단에서 막는다. 원래는 아무 검증 없이
+# 편성 확정 전에도 발표 시작이 눌리는 문제가 있었다.
 # =========================================================
 @staff_member_required
 def open_team_presentation(request, team_id):
@@ -213,12 +217,27 @@ def open_team_presentation(request, team_id):
 
     if request.method == "POST":
         team = get_object_or_404(Team, id=team_id)
-        if not team.eval_opened_at:
+        round_obj = team.round
+
+        if round_obj.status == EvaluationRound.Status.DRAFT:
+            messages.error(
+                request,
+                "팀 편성이 아직 확정되지 않았습니다. 먼저 '팀 편성'에서 편성을 확정해주세요.",
+            )
+        elif team.members.count() == 0:
+            messages.error(
+                request,
+                f"{team.name}에 배정된 팀원이 없어 발표를 시작할 수 없습니다.",
+            )
+        elif not team.eval_opened_at:
             team.eval_opened_at = timezone.now()
             team.eval_status = Team.EvalStatus.OPEN
             team.save()
+            messages.success(request, f"{team.name} 발표가 시작되어 평가가 열렸습니다.")
 
-    return redirect(f"/tutor/team-build/?round_id={request.POST.get('round_id', '')}")
+        return redirect(f"/tutor/team-evaluation/?round_id={round_obj.id}")
+
+    return redirect("tutor_team_evaluation")
 
 
 # =========================================================
@@ -295,6 +314,7 @@ def team_evaluation(request):
                     "team": team,
                     "score": existing.score if existing else None,
                     "done": existing is not None,
+                    "member_count": team.members.count(),
                 }
             )
 
@@ -305,6 +325,10 @@ def team_evaluation(request):
             "round": round_obj,
             "rounds": EvaluationRound.objects.order_by("-id"),
             "evaluations": evaluations,
+            # 팀 편성이 확정(draft 이후)돼야 발표 시작 버튼을 노출한다
+            "formation_confirmed": bool(
+                round_obj and round_obj.status != EvaluationRound.Status.DRAFT
+            ),
         },
     )
 
