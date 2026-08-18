@@ -7,8 +7,8 @@
 | 목적 | 프로그램(화면) 단위로 "사용자가 어떤 순서로 이 화면을 쓰는지"를 정의한다 |
 | 연결 문서 | [03_programs/06_program_list_template.md](../03_programs/06_program_list_template.md) (P-01~P-19), 본 문서에서 추가하는 목표 시나리오용 프로그램(P-20~P-22) |
 
-> P-20(과제 관리), P-21(튜터 평가), P-22(점수 계산)은 [10_overall_scenario_template.md](./10_overall_scenario_template.md)의
-> 전체 흐름을 완성하기 위한 목표 화면/처리다.
+> P-20(과제 관리), P-21(튜터 평가), P-22(점수 계산)은 이번 프로젝트 구현 범위에 포함된 **예정** 상태 프로그램이다
+> ([03_programs/06_program_list_template.md](../03_programs/06_program_list_template.md) "6. 평가 (예정)" 참고).
 
 ---
 

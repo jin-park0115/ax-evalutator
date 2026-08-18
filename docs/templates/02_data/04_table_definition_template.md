@@ -174,7 +174,9 @@
 | `created_at` | DATETIME | N | auto_now_add | 생성 일시 |
 
 제약조건: `UNIQUE(round_id, evaluator_id, target_id)` (`uq_individual_evaluation_once`)
-관련 규칙: [BR-02~04](../01_requirements) 개인 평가 대상 제한
+관련 규칙: [BR-02](../01_requirements/business_rule_BR02.md) 다른 팀 구성원 평가 금지,
+[BR-03](../01_requirements/business_rule_BR03.md) 같은 팀 구성원 평가 허용,
+[BR-04](../01_requirements/business_rule_BR04.md) 자기 자신 평가 금지
 
 ---
 

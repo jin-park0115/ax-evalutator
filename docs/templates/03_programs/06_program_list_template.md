@@ -71,7 +71,20 @@
 루트 `urls.py`와 `apps/evaluations/urls.py` 양쪽에 중복 등록되어 있다. `django.urls.reverse()`는
 먼저 로드되는 쪽(루트 `urls.py`의 `views_tutor` 직접 연결분)을 사용한다.
 
-## 6. 미구현 영역
+## 6. 평가 (예정 — 이번 프로젝트 구현 범위)
 
-`apps.scoring`, `apps.results`는 `views.py`/`urls.py`가 비어 있어 프로그램이 없다.
-점수 계산/결과 열람은 현재 P-08(결과 조회)이 `apps.evaluations.ScoreResult`를 직접 조회하는 방식으로 대신하고 있다.
+| ID | 프로그램명 | 유형 | URL | View | Template | 접근 권한 | 상태 |
+|---|---|---|---|---|---|---|---|
+| P-20 | 과제 관리 | 화면 | 미정 | 미구현(모델 `Assignment`만 존재, `apps/scoring/admin.py`는 등록 주석 처리됨) | 미구현 | 관리자(`is_staff`) | **예정** |
+| P-21 | 튜터 평가 | 화면 | 미정 | 미구현(모델 `TutorEvaluation`만 존재) | 미구현 | 관리자(`is_staff`) | **예정** |
+| P-22 | 점수 계산 | 시스템(자동) | - | `apps.scoring.services.calculate_round`, `save_cumulative_seeds`(구현됨, 호출하는 View/트리거 없음) | - | 시스템(회차 종료 시 자동 실행 예정) | **예정** |
+
+이 세 프로그램은 이번 프로젝트 구현 범위에 포함된다(사용자 확정, 2026-08-18). 상세 흐름은
+[04_scenarios/11_program_scenario_template.md](../04_scenarios/11_program_scenario_template.md)의 P-20~P-22 참고.
+`apps.scoring.services`에 `calculate_round()`/`save_cumulative_seeds()` 계산 로직 자체는 이미 구현돼 있으나,
+이를 호출하는 화면/URL/트리거(P-22)가 아직 없다 — 회차 상태를 "종료"로 바꿀 때 자동 호출되도록 연결하는 작업이 남아 있다.
+
+## 7. 프로그램 목록 제외 영역
+
+`apps.results`는 `views.py`/`urls.py`가 비어 있어 별도 프로그램이 없다. 결과 열람은 P-08(결과 조회)이 대신 수행한다.
+`apps.students`는 학생 전용 모델 없이 `USER`(role=`STUDENT`)로 대체돼 있다(설계 의도, [02_data/04_table_definition_template.md](../02_data/04_table_definition_template.md) 참고).
