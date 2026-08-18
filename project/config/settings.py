@@ -36,6 +36,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware", 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -74,6 +75,7 @@ DATABASES = {
         "PASSWORD": config("POSTGRES_PASSWORD", default="postgres"),
         "HOST": config("POSTGRES_HOST", default="localhost"),
         "PORT": config("POSTGRES_PORT", default="5432"),
+        "OPTIONS": {"sslmode": config("POSTGRES_SSLMODE", default="disable")},
     }
 }
 
@@ -89,7 +91,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/student/"
+# "/student/"로 고정되어 있어서 관리자로 로그인해도 학생 홈으로
+# 보내지던 문제 수정. "/"(home)는 역할에 따라 관리자/학생 화면을
+# 알아서 분기해서 보여주므로 이쪽으로 보내는 게 맞다.
+LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 # messages.error()가 기본으로 붙이는 태그가 "error"라서 alert-error가
@@ -139,3 +144,5 @@ SOCIALACCOUNT_PROVIDERS = {
         },
     }
 }
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

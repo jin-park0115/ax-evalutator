@@ -23,4 +23,16 @@ urlpatterns = [
         views.reject_user,
         name="reject_user",
     ),
+    # 이미 역할이 부여된 회원 관리
+    path("users/", views.user_list, name="user_list"),
+    path(
+        "users/<int:user_id>/update-role/",
+        views.update_user_role,
+        name="update_user_role",
+    ),
+    path(
+        "users/<int:user_id>/toggle-active/",
+        views.toggle_user_active,
+        name="toggle_user_active",
+    ),
 ]

@@ -9,3 +9,6 @@ django-allauth
 requests
 requests-oauthlib
 PyJWT
+gunicorn
+whitenoise
+psycopg2-binary

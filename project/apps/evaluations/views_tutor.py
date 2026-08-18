@@ -131,6 +131,21 @@ def toggle_team_first_rank(request, round_id):
 
 
 # =========================================================
+# 팀 편성 확정 기능 (추가됨)
+# =========================================================
+@staff_member_required
+def team_confirm(request, round_id):
+    """팀 편성 확정 버튼 클릭 시 회차 상태를 CONFIRMED로 변경"""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        round_obj.status = EvaluationRound.Status.CONFIRMED
+        round_obj.save()
+        messages.success(request, f"[{round_obj.name}] 팀 편성이 확정되었습니다.")
+
+    return redirect(f"/tutor/team-build/?round_id={round_id}")
+
+
+# =========================================================
 # 점수 집계 (BE2 calculate_round 호출)
 # URL: /tutor/rounds/<round_id>/calculate/
 # =========================================================
@@ -194,6 +209,14 @@ def team_build(request):
     else:
         round_obj = EvaluationRound.objects.order_by("-id").first()
 
+    # 종료된 이전 회차에 점수 결과가 있는지 — 시드 구간 설정 슬라이더 노출 여부
+    from apps.evaluations.models import ScoreResult
+    has_score_history = False
+    if round_obj:
+        has_score_history = ScoreResult.objects.filter(
+            round__status="finished", round_id__lt=round_obj.id
+        ).exists()
+
     teams = []
     if round_obj:
         teams = (
@@ -225,8 +248,35 @@ def team_build(request):
             "teams": teams,
             "unassigned_students": unassigned_students,
             "round_editable": is_round_editable(round_obj) if round_obj else False,
+            "has_score_history": has_score_history,
         },
     )
+
+
+# =========================================================
+# 팀 편성 잠금 해제 ("수정" 버튼) — ready -> draft로 되돌려
+# is_round_editable이 다시 True가 되게 한다.
+# 편성 확정(ready) 상태에서만 허용 — 발표가 이미 시작됐거나
+# 회차가 진행 중/종료된 뒤에 팀 구성을 바꾸면 이미 제출된 평가와
+# 어긋나므로 그 경우는 막는다.
+# URL: /tutor/rounds/<round_id>/unlock-formation/
+# =========================================================
+@staff_member_required
+def unlock_round_formation(request, round_id):
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        if round_obj.status == EvaluationRound.Status.READY:
+            round_obj.status = EvaluationRound.Status.DRAFT
+            round_obj.save(update_fields=["status"])
+            messages.success(request, "팀 편성을 다시 수정할 수 있습니다.")
+        else:
+            messages.error(
+                request,
+                f"현재 상태({round_obj.get_status_display()})에서는 수정할 수 없습니다.",
+            )
+        return redirect(f"/tutor/team-build/?round_id={round_obj.id}")
+
+    return redirect("tutor_team_build")
 
 
 # =========================================================
@@ -697,3 +747,57 @@ def evaluation_status(request):
             "non_submitters": non_submitters,
         },
     )
+
+
+# =========================================================
+# 전체 학생 성적 조회
+# URL: /tutor/students/scores/
+#
+# 회차별로 흩어져 있는 ScoreResult를 학생 단위로 모아
+# 참여 회차 수 / 평균 최종점수 / 최근 회차 점수·석차를 보여준다.
+# 아직 채점 결과가 없는 학생도 0점으로 목록에 포함한다.
+# =========================================================
+@staff_member_required
+def student_score_overview(request):
+    from django.contrib.auth import get_user_model
+    from apps.evaluations.models import ScoreResult
+
+    User = get_user_model()
+
+    results = (
+        ScoreResult.objects.filter(user__role=User.Role.STUDENT)
+        .select_related("round", "user")
+        .order_by("user_id", "-round_id")
+    )
+
+    by_student = {}
+    for result in results:
+        entry = by_student.setdefault(
+            result.user_id, {"student": result.user, "results": []}
+        )
+        entry["results"].append(result)
+
+    overview = []
+    for entry in by_student.values():
+        scores = [r.final_score for r in entry["results"] if r.final_score is not None]
+        overview.append(
+            {
+                "student": entry["student"],
+                "round_count": len(entry["results"]),
+                "avg_score": round(sum(scores) / len(scores), 2) if scores else 0.0,
+                "latest": entry["results"][0],
+            }
+        )
+
+    scored_ids = set(by_student.keys())
+    unscored_students = User.objects.filter(
+        role=User.Role.STUDENT, is_active=True
+    ).exclude(id__in=scored_ids)
+    for student in unscored_students:
+        overview.append(
+            {"student": student, "round_count": 0, "avg_score": 0.0, "latest": None}
+        )
+
+    overview.sort(key=lambda row: (-row["avg_score"], row["student"].username))
+
+    return render(request, "tutor/student_scores.html", {"overview": overview})

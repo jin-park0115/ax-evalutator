@@ -73,8 +73,10 @@
             {% endfor %}
         </select>
 
+        {% if round_editable %}
         <input type="number" class="form-control form-control-sm" id="teamCountInput"
                placeholder="팀 수(미입력 시 자동)" style="width: 150px;" min="1">
+        {% endif %}
 
         {% if has_score_history %}
         <select class="form-select form-select-sm" id="seedWindowSelect" style="width: 160px;">
@@ -91,6 +93,15 @@
         </button>
         <button type="button" class="btn btn-primary btn-sm" id="autoAssignBtn">자동 편성</button>
         <button type="button" class="btn btn-success btn-sm" id="confirmBtn">편성 확정</button>
+        {% elif round.status == "ready" %}
+        <!-- 편성 확정된 상태 — 팀 수/자동편성 등은 잠기고, "수정"을 눌러야 다시 편집 가능 -->
+        <form method="post" action="{% url 'unlock_round_formation' round.id %}" class="d-inline m-0"
+              onsubmit="return confirm('편성을 다시 수정 상태로 되돌립니다. 계속할까요?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary">
+                수정
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>
@@ -519,7 +530,7 @@ const hasScoreHistory = "{{ has_score_history|yesno:'true,false' }}" === "true";
     const confirmBtn = document.getElementById('confirmBtn');
     if (confirmBtn) {
         confirmBtn.addEventListener('click', function () {
-            if (!confirm('편성을 확정하면 DB에 저장되며 더 이상 팀 구성을 수정할 수 없습니다. 계속하시겠습니까?')) return;
+            // 확정 후에도 "수정" 버튼으로 다시 열 수 있어서 별도 확인창 없이 바로 진행
 
             fetch('/teams/confirm/', {
                 method: 'POST',
