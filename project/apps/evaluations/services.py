@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from django.db import IntegrityError, transaction
 
 from apps.evaluations.models import Evaluation, IndividualEvaluation
+
+if TYPE_CHECKING:
+    from apps.evaluations.models import TeamEvaluation
 
 
 def create_evaluation(
@@ -38,7 +44,7 @@ def save_team_evaluation(
     score: int,
     responses: dict | None = None,
     is_final: bool = False,
-) -> "TeamEvaluation":
+) -> TeamEvaluation:
     """
     학생의 팀평가를 임시저장하거나 최종 제출한다.
 
