@@ -2,19 +2,36 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
     <div>
         <h1 class="h3 mb-1">개인 평가</h1>
         <p class="text-muted mb-0">
-            학생별 평가 결과를 확인할 수 있습니다.
+            튜터가 학생별로 점수를 입력합니다. 최종 점수 산출에 반영됩니다.
         </p>
     </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <select class="form-select form-select-sm" id="roundSelect" style="width: 200px;">
+            {% for r in rounds %}
+            <option value="{{ r.id }}" {% if round and r.id == round.id %}selected{% endif %}>
+                {{ r.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
 </div>
+
+{% if not round %}
+<div class="alert alert-info">
+    평가 회차가 없습니다. 먼저 회차를 생성하세요.
+</div>
+{% else %}
 
 <div class="card">
 
     <div class="card-header">
         <strong>개인 평가 목록</strong>
+        <span class="text-muted">({{ evaluations|length }}명)</span>
     </div>
 
     <div class="card-body p-0">
@@ -27,7 +44,7 @@
                     <tr>
                         <th>학생</th>
                         <th>팀</th>
-                        <th>점수</th>
+                        <th>내 평가 점수</th>
                         <th>상태</th>
                         <th>관리</th>
                     </tr>
@@ -36,55 +53,40 @@
                 <tbody>
 
                     {% for evaluation in evaluations %}
-
                     <tr>
+                        <td>{{ evaluation.student.username }}</td>
+
+                        <td>{{ evaluation.team.name }}</td>
 
                         <td>
-                            {{ evaluation.name }}
-                        </td>
-
-                        <td>
-                            {{ evaluation.team }}팀
-                        </td>
-
-                        <td>
-                            {{ evaluation.score }}점
-                        </td>
-
-                        <td>
-
-                            {% if evaluation.status == "평가 완료" %}
-
-                                <span class="badge text-bg-success">
-                                    {{ evaluation.status }}
-                                </span>
-
+                            {% if evaluation.done %}
+                                {{ evaluation.score|floatformat:1 }}점
                             {% else %}
-
-                                <span class="badge text-bg-secondary">
-                                    {{ evaluation.status }}
-                                </span>
-
+                                <span class="text-muted">—</span>
                             {% endif %}
-
                         </td>
 
                         <td>
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-outline-primary"
-                            >
-                                보기
-                            </button>
+                            {% if evaluation.done %}
+                                <span class="badge text-bg-success">평가 완료</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">평가 대기</span>
+                            {% endif %}
                         </td>
 
+                        <td>
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{% url 'tutor_individual_evaluation_form' evaluation.student.id %}?round_id={{ round.id }}">
+                                {% if evaluation.done %}수정{% else %}평가하기{% endif %}
+                            </a>
+                        </td>
                     </tr>
 
                     {% empty %}
 
                     <tr>
-                        <td colspan="5" class="text-center py-4">
-                            평가 데이터가 없습니다.
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            팀에 배정된 학생이 없습니다. "팀 편성"에서 먼저 배정해주세요.
                         </td>
                     </tr>
 
@@ -99,5 +101,16 @@
     </div>
 
 </div>
+
+{% endif %}
+
+<script>
+    const roundSelect = document.getElementById('roundSelect');
+    if (roundSelect) {
+        roundSelect.addEventListener('change', function () {
+            window.location.href = '?round_id=' + this.value;
+        });
+    }
+</script>
 
 {% endblock %}

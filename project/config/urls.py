@@ -15,6 +15,11 @@ from apps.evaluations.views_tutor import (
     tutor_settings,
     evaluation_status,
 )
+# views_eval에도 team_evaluation_form이 있어 이름이 겹치므로 별칭으로 구분
+from apps.evaluations.views_tutor import (
+    team_evaluation_form as tutor_team_evaluation_form_view,
+    individual_evaluation_form as tutor_individual_evaluation_form_view,
+)
 from apps.evaluations.views_eval import (
     team_evaluation_list,
     team_evaluation_form,
@@ -81,12 +86,22 @@ urlpatterns = [
         team_evaluation,
         name="tutor_team_evaluation",
     ),
+    path(
+        "tutor/team-evaluation/<int:team_id>/",
+        tutor_team_evaluation_form_view,
+        name="tutor_team_evaluation_form",
+    ),
 
     # 개인 평가
     path(
         "tutor/individual-evaluation/",
         individual_evaluation,
         name="tutor_individual_evaluation",
+    ),
+    path(
+        "tutor/individual-evaluation/<int:student_id>/",
+        tutor_individual_evaluation_form_view,
+        name="tutor_individual_evaluation_form",
     ),
 
     # 템플릿

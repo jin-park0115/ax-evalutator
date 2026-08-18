@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from apps.evaluations.models import EvaluationRound, EvaluationTemplate
 
@@ -138,92 +139,260 @@ def open_team_presentation(request, team_id):
 
 
 # =========================================================
-# 팀 평가 (다른 팀원 목업 유지)
+# 튜터 평가 공통 헬퍼
+#
+# TutorEvaluation은 팀 평가와 개인 평가를 한 테이블에 담는다.
+# scoring.services는 팀 점수를 team_id로만, 개인 점수를 user_id로만
+# 필터링하므로 한 행에 team/user를 동시에 채우면 양쪽에서 중복
+# 집계된다. 따라서 저장 시 반드시 둘 중 하나만 채운다.
+# =========================================================
+def _selected_round(request):
+    round_id = request.GET.get("round_id") or request.POST.get("round_id")
+    if round_id:
+        return get_object_or_404(EvaluationRound, id=round_id)
+    return EvaluationRound.objects.order_by("-id").first()
+
+
+def _tutor_template_items(round_obj):
+    """튜터 평가 문항 목록. criteria가 list가 아니면 빈 목록으로 취급."""
+    if not round_obj:
+        return []
+    template = EvaluationTemplate.objects.filter(
+        round=round_obj,
+        type=EvaluationTemplate.TemplateType.TUTOR,
+    ).first()
+    if not template or not isinstance(template.criteria, list):
+        return []
+    return template.criteria
+
+
+def _collect_answers(request, items):
+    """POST에서 문항 응답을 모아 (answers, avg_score)를 반환.
+    미응답 문항이 하나라도 있으면 (None, None)."""
+    answers = {}
+    for item in items:
+        key = item.get("key")
+        value = request.POST.get(f"item_{key}")
+        if value:
+            answers[key] = int(value)
+
+    if not items or len(answers) != len(items):
+        return None, None
+
+    scores = list(answers.values())
+    return answers, sum(scores) / len(scores)
+
+
+# =========================================================
+# 튜터 팀 평가 (실 DB 연동 — TutorEvaluation)
 # URL: /tutor/team-evaluation/
 # =========================================================
+@staff_member_required
 def team_evaluation(request):
-    evaluations = [
-        {
-            "team_no": 1,
-            "team_name": "1팀",
-            "project": "Django 프로젝트",
-            "score": 85,
-            "status": "평가 완료",
-        },
-        {
-            "team_no": 2,
-            "team_name": "2팀",
-            "project": "Django 프로젝트",
-            "score": 82,
-            "status": "평가 완료",
-        },
-        {
-            "team_no": 3,
-            "team_name": "3팀",
-            "project": "Django 프로젝트",
-            "score": 78,
-            "status": "평가 대기",
-        },
-    ]
+    from apps.teams.models import Team
+    from apps.evaluations.models import TutorEvaluation
+
+    round_obj = _selected_round(request)
+
+    evaluations = []
+    if round_obj:
+        teams = Team.objects.filter(round=round_obj).order_by("id")
+        my_scores = {
+            te.team_id: te
+            for te in TutorEvaluation.objects.filter(
+                round=round_obj,
+                evaluator=request.user,
+                team__isnull=False,
+            )
+        }
+        for team in teams:
+            existing = my_scores.get(team.id)
+            evaluations.append(
+                {
+                    "team": team,
+                    "score": existing.score if existing else None,
+                    "done": existing is not None,
+                }
+            )
 
     return render(
         request,
         "tutor/team_evaluation.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "evaluations": evaluations,
         },
     )
 
 
 # =========================================================
-# 개인 평가 (다른 팀원 목업 유지)
+# 튜터 팀 평가 입력 폼
+# URL: /tutor/team-evaluation/<team_id>/
+# =========================================================
+@staff_member_required
+def team_evaluation_form(request, team_id):
+    from apps.teams.models import Team
+    from apps.evaluations.models import TutorEvaluation
+
+    target_team = get_object_or_404(Team, id=team_id)
+    round_obj = target_team.round
+
+    items = _tutor_template_items(round_obj)
+
+    existing = TutorEvaluation.objects.filter(
+        round=round_obj,
+        evaluator=request.user,
+        team=target_team,
+    ).first()
+    existing_answers = existing.responses if existing else {}
+    # 템플릿에서는 변수 키로 dict 조회를 못 하므로 미리 값을 붙여서 넘긴다
+    items = [
+        {**item, "existing_value": existing_answers.get(item.get("key"))}
+        for item in items
+    ]
+
+    if request.method == "POST":
+        answers, avg_score = _collect_answers(request, items)
+        if answers is None:
+            messages.error(request, "모든 문항에 응답해야 합니다.")
+        else:
+            TutorEvaluation.objects.update_or_create(
+                round=round_obj,
+                evaluator=request.user,
+                team=target_team,
+                user=None,
+                defaults={
+                    "score": avg_score,
+                    "responses": answers,
+                },
+            )
+            messages.success(request, f"{target_team.name} 튜터 평가가 저장되었습니다.")
+            return redirect(f"/tutor/team-evaluation/?round_id={round_obj.id}")
+
+    return render(
+        request,
+        "tutor/team_evaluation_form.html",
+        {
+            "round": round_obj,
+            "target_team": target_team,
+            "items": items,
+        },
+    )
+
+
+# =========================================================
+# 튜터 개인 평가 (실 DB 연동 — TutorEvaluation)
 # URL: /tutor/individual-evaluation/
 # =========================================================
+@staff_member_required
 def individual_evaluation(request):
-    evaluations = [
-        {
-            "name": "김철수",
-            "team": 1,
-            "score": 88,
-            "status": "평가 완료",
-        },
-        {
-            "name": "이영희",
-            "team": 1,
-            "score": 91,
-            "status": "평가 완료",
-        },
-        {
-            "name": "박민수",
-            "team": 2,
-            "score": 84,
-            "status": "평가 대기",
-        },
-        {
-            "name": "최지우",
-            "team": 2,
-            "score": 86,
-            "status": "평가 대기",
-        },
-        {
-            "name": "정수빈",
-            "team": 3,
-            "score": 79,
-            "status": "평가 완료",
-        },
-        {
-            "name": "한지민",
-            "team": 3,
-            "score": 83,
-            "status": "평가 완료",
-        },
-    ]
+    from apps.teams.models import TeamMember
+    from apps.evaluations.models import TutorEvaluation
+
+    round_obj = _selected_round(request)
+
+    evaluations = []
+    if round_obj:
+        members = (
+            TeamMember.objects.filter(team__round=round_obj)
+            .select_related("student", "team")
+            .order_by("team__id", "student__username")
+        )
+        my_scores = {
+            te.user_id: te
+            for te in TutorEvaluation.objects.filter(
+                round=round_obj,
+                evaluator=request.user,
+                user__isnull=False,
+            )
+        }
+        for member in members:
+            existing = my_scores.get(member.student_id)
+            evaluations.append(
+                {
+                    "student": member.student,
+                    "team": member.team,
+                    "score": existing.score if existing else None,
+                    "done": existing is not None,
+                }
+            )
 
     return render(
         request,
         "tutor/individual_evaluation.html",
         {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
             "evaluations": evaluations,
+        },
+    )
+
+
+# =========================================================
+# 튜터 개인 평가 입력 폼
+# URL: /tutor/individual-evaluation/<student_id>/
+# =========================================================
+@staff_member_required
+def individual_evaluation_form(request, student_id):
+    from apps.teams.models import TeamMember
+    from apps.evaluations.models import TutorEvaluation
+
+    round_obj = _selected_round(request)
+    if not round_obj:
+        messages.error(request, "평가 회차가 없습니다.")
+        return redirect("tutor_individual_evaluation")
+
+    membership = get_object_or_404(
+        TeamMember.objects.select_related("student", "team"),
+        student_id=student_id,
+        team__round=round_obj,
+    )
+    target_student = membership.student
+
+    items = _tutor_template_items(round_obj)
+
+    existing = TutorEvaluation.objects.filter(
+        round=round_obj,
+        evaluator=request.user,
+        user=target_student,
+    ).first()
+    existing_answers = existing.responses if existing else {}
+    items = [
+        {**item, "existing_value": existing_answers.get(item.get("key"))}
+        for item in items
+    ]
+
+    if request.method == "POST":
+        answers, avg_score = _collect_answers(request, items)
+        if answers is None:
+            messages.error(request, "모든 문항에 응답해야 합니다.")
+        else:
+            TutorEvaluation.objects.update_or_create(
+                round=round_obj,
+                evaluator=request.user,
+                user=target_student,
+                team=None,
+                defaults={
+                    "score": avg_score,
+                    "responses": answers,
+                },
+            )
+            messages.success(
+                request, f"{target_student.username} 튜터 평가가 저장되었습니다."
+            )
+            return redirect(
+                f"/tutor/individual-evaluation/?round_id={round_obj.id}"
+            )
+
+    return render(
+        request,
+        "tutor/individual_evaluation_form.html",
+        {
+            "round": round_obj,
+            "target_student": target_student,
+            "target_team": membership.team,
+            "items": items,
         },
     )
 
