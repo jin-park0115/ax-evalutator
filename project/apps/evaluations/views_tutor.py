@@ -7,25 +7,41 @@ from apps.evaluations.models import EvaluationRound, EvaluationTemplate
 # =========================================================
 # 회차 관리 (실 DB 연동 완료)
 # URL: /tutor/rounds/
+#
+# 팀 수는 여기서 입력받지 않는다 — 실제 팀 수는 팀 편성 화면에서
+# 만들어진 Team 레코드 개수(round.teams.count)를 그대로 보여준다.
+# (팀 편성에서 자동/수동으로 몇 개 팀을 만들든 그게 곧 회차의
+# 팀 수가 되므로, 이중으로 값을 관리할 이유가 없다)
 # =========================================================
 @staff_member_required
 def round_list(request):
-    # 회차 생성
     if request.method == "POST":
+        round_id = request.POST.get("round_id")
         title = request.POST.get("title") or request.POST.get("name")
         start_date = request.POST.get("start_date") or request.POST.get("start_at")
         end_date = request.POST.get("end_date") or request.POST.get("end_at")
-        student_weight = request.POST.get("student_weight", 0.5)
-        tutor_weight = request.POST.get("tutor_weight", 0.5)
 
         if title and start_date and end_date:
-            EvaluationRound.objects.create(
-                name=title,
-                start_at=start_date,
-                end_at=end_date,
-                student_weight=float(student_weight),
-                tutor_weight=float(tutor_weight),
-            )
+            if round_id:
+                # 회차 수정
+                round_obj = get_object_or_404(EvaluationRound, id=round_id)
+                round_obj.name = title
+                round_obj.start_at = start_date
+                round_obj.end_at = end_date
+                round_obj.save(update_fields=["name", "start_at", "end_at"])
+                messages.success(request, f"[{title}] 회차가 수정되었습니다.")
+            else:
+                # 회차 생성
+                student_weight = request.POST.get("student_weight", 0.5)
+                tutor_weight = request.POST.get("tutor_weight", 0.5)
+                EvaluationRound.objects.create(
+                    name=title,
+                    start_at=start_date,
+                    end_at=end_date,
+                    student_weight=float(student_weight),
+                    tutor_weight=float(tutor_weight),
+                )
+                messages.success(request, f"[{title}] 회차가 생성되었습니다.")
             return redirect("tutor_rounds")
 
     # DB에서 전체 회차 조회
@@ -38,6 +54,19 @@ def round_list(request):
             "rounds": rounds,
         },
     )
+
+
+@staff_member_required
+def delete_round(request, round_id):
+    """회차 삭제. 팀/평가/집계 결과 등 연결된 데이터가 전부 함께
+    삭제된다(FK CASCADE) — 삭제 전 화면에서 반드시 경고 후 확인받는다."""
+    if request.method == "POST":
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+        name = round_obj.name
+        round_obj.delete()
+        messages.success(request, f"[{name}] 회차가 삭제되었습니다.")
+
+    return redirect("tutor_rounds")
 
 
 # =========================================================
