@@ -649,23 +649,16 @@ def template_create(request):
             )
             return redirect("tutor_templates")
 
-    # 실제 평가 제출 화면(views_eval.py/views_tutor.py의 _get_template_items)은
-    # criteria를 [{"key","text"}, ...] 플랫 리스트로만 읽는다. models.py의
-    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 {"scale","questions"}
-    # 딕셔너리 형태라 그대로 저장하면 평가 화면에 문항이 하나도 안 뜬다 —
-    # 여기서 질문 내용은 그대로 가져오되 실제로 쓰이는 플랫 형태로 변환한다.
-    def _to_flat_items(criteria):
-        return [
-            {"key": q["id"], "text": q["content"]}
-            for q in criteria["questions"]
-        ]
-
+    # DEFAULT_TEAM_CRITERIA/DEFAULT_INDIVIDUAL_CRITERIA는 models.py에 이미
+    # [{"key","text"}, ...] 플랫 리스트로 정의돼 있고, 실제 평가 제출 화면
+    # (views_eval.py/views_tutor.py의 _get_template_items)도 이 형태를 그대로
+    # 읽는다 — 별도 변환 없이 그대로 사용한다.
     default_items = {
-        "TEAM": _to_flat_items(DEFAULT_TEAM_CRITERIA),
-        "INDIVIDUAL": _to_flat_items(DEFAULT_INDIVIDUAL_CRITERIA),
+        "TEAM": DEFAULT_TEAM_CRITERIA,
+        "INDIVIDUAL": DEFAULT_INDIVIDUAL_CRITERIA,
         # 튜터 평가 기본값도 팀 평가와 같은 5문항 사용 (EvaluationTemplate.save()의
         # TUTOR 기본값 처리와 동일한 기준)
-        "TUTOR": _to_flat_items(DEFAULT_TEAM_CRITERIA),
+        "TUTOR": DEFAULT_TEAM_CRITERIA,
     }
 
     rounds = EvaluationRound.objects.order_by("-id")
@@ -736,10 +729,18 @@ def evaluation_status(request):
         )
         total_students = members.count()
 
+        # 최종 제출(BR-11)은 그 시점의 팀 평가/개인 평가를 함께 잠그지만,
+        # 학생에 따라 둘 중 하나만 존재할 수 있다(팀 평가만 했거나 개인 평가만
+        # 했거나). 팀 평가 또는 개인 평가 중 하나라도 is_final=True면
+        # 그 학생은 제출 완료로 본다.
         submitted_ids = set(
             IndividualEvaluation.objects.filter(
                 round=round_obj, is_final=True
             ).values_list("evaluator_id", flat=True)
+        ) | set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("submitted_by_id", flat=True)
         )
         completed_students = len({m.student_id for m in members if m.student_id in submitted_ids})
         remaining_students = total_students - completed_students
