@@ -22,6 +22,14 @@
         <input type="number" class="form-control form-control-sm" id="teamCountInput"
                placeholder="팀 수(자동)" style="width: 120px;" min="1">
 
+        <select class="form-select form-select-sm" id="seedWindowSelect" style="width: 170px;"
+                title="자동 편성 시 참고할 이전 성적 범위">
+            <option value="">전체 누적 평균</option>
+            <option value="1">직전 1회차</option>
+            <option value="3">직전 3회차 평균</option>
+            <option value="5">직전 5회차 평균</option>
+        </select>
+
         <button type="button" class="btn btn-primary" id="autoAssignBtn">
             자동 편성
         </button>
@@ -185,6 +193,7 @@
         autoAssignBtn.addEventListener('click', function () {
             const roundId = roundSelect.value;
             const teamCount = document.getElementById('teamCountInput').value;
+            const seedWindowValue = document.getElementById('seedWindowSelect').value;
 
             fetch('/teams/auto-assign/', {
                 method: 'POST',
@@ -195,6 +204,8 @@
                 body: JSON.stringify({
                     round_id: roundId,
                     team_count: teamCount || undefined,
+                    // 빈 값("전체 누적 평균")이면 window를 안 보내 서버 기본값(전체 누적)을 쓴다
+                    window: seedWindowValue ? parseInt(seedWindowValue, 10) : undefined,
                 }),
             })
                 .then(res => res.json().then(data => ({ status: res.status, data })))

@@ -16,50 +16,76 @@ def get_user_display_name(user):
     return getattr(user, "username", getattr(user, "email", str(user.id)))
 
 
-def get_student_seed_scores(target_round_id=None, excluded_student_ids=[]):
+def get_student_seed_scores(target_round_id=None, excluded_student_ids=[], window=None):
     """
-    모든 활성 학생(STUDENT)의 TEAM_USER_SCORE_SEED 테이블 내 직전 회차 cumulative_seed 조회
-    - Subquery를 사용해 N+1 문제 해결 및 단일 쿼리로 최적화
-    - target_round_id가 주어지면 해당 회차 '미만'의 가장 최신 시드 점수를 조회
+    모든 활성 학생(STUDENT)의 시드 점수를 조회한다.
+
+    window:
+        None (기본값) - 지금까지 "종료"된 모든 회차의 최종점수 평균 (전체 누적)
+        1            - 직전 1회차 최종점수
+        3, 5 등      - 직전 N회차 최종점수 평균
+
+    ScoreResult(회차별 최종 성적표)에서 직접 계산한다.
+    원래는 TEAM_USER_SCORE_SEED 테이블에 미리 계산해 둔 cumulative_seed를
+    읽었는데, 그 값을 채워 넣는 코드가 어디에도 없어서 실제로는 테이블이
+    항상 비어 있었고(2026-08-19 확인), 자동 편성이 매번 전원 0점으로
+    취급해 사실상 완전 무작위로 동작하고 있었다.
+    또한 "직전 몇 회차 평균으로 볼지"를 튜터가 자동 편성 화면에서 매번
+    골라 쓸 수 있어야 해서, 미리 값을 구워두는 방식 대신 요청 시점에
+    ScoreResult에서 즉석으로 계산하는 방식으로 바꿨다.
     """
-    latest_seed_subquery = TeamUserScoreSeed.objects.filter(
-        user=OuterRef("pk")
+    from apps.evaluations.models import ScoreResult
+
+    rows_qs = ScoreResult.objects.filter(round__status="finished")
+    if target_round_id:
+        rows_qs = rows_qs.filter(round_id__lt=target_round_id)
+
+    rows = (
+        rows_qs.exclude(user_id__in=excluded_student_ids)
+        .order_by("user_id", "-round_id")
+        .values("user_id", "final_score")
     )
 
-    if target_round_id:
-        latest_seed_subquery = latest_seed_subquery.filter(round_id__lt=target_round_id)
-
-    latest_seed_subquery = latest_seed_subquery.order_by("-round_id").values("cumulative_seed")[:1]
+    scores_by_user = {}
+    for row in rows:
+        if row["final_score"] is None:
+            continue
+        scores_by_user.setdefault(row["user_id"], []).append(row["final_score"])
 
     students = (
         User.objects.filter(role=User.Role.STUDENT, is_active=True)
         .exclude(id__in=excluded_student_ids)
-        .annotate(
-            seed_score=Coalesce(
-                Subquery(latest_seed_subquery, output_field=FloatField()),
-                Value(0.0),
-            )
-        )
-        .order_by("-seed_score", "id")
+        .order_by("id")
     )
 
     student_scores = []
     for student in students:
+        # round_id 내림차순으로 이미 정렬돼 있으므로 앞에서 window개만
+        # 자르면 "가장 최근 N회차"가 된다.
+        history = scores_by_user.get(student.id, [])
+        if window:
+            history = history[:window]
+        avg_score = sum(history) / len(history) if history else 0.0
+
         student_scores.append({
             "student_id": student.id,
             "student_name": get_user_display_name(student),
             "email": getattr(student, "email", ""),
-            "avg_score": round(student.seed_score, 2),
+            "avg_score": round(avg_score, 2),
         })
+
+    student_scores.sort(key=lambda s: (-s["avg_score"], s["student_id"]))
 
     return student_scores
 
 
-def get_students_by_percentiles(target_round_id=None, thresholds=[30.0, 60.0], excluded_student_ids=[]):
-    """퍼센테이지 슬라이더 변경 시 제외 학생을 뺀 누적 시드 점수대별 수강생 목록 실시간 반환"""
+def get_students_by_percentiles(target_round_id=None, thresholds=[30.0, 60.0], excluded_student_ids=[], window=None):
+    """퍼센테이지 슬라이더 변경 시 제외 학생을 뺀 시드 점수대별 수강생 목록 실시간 반환.
+    window는 get_student_seed_scores와 동일 (None=전체 누적, 1/3/5=직전 N회차 평균)."""
     student_scores = get_student_seed_scores(
-        target_round_id=target_round_id, 
-        excluded_student_ids=excluded_student_ids
+        target_round_id=target_round_id,
+        excluded_student_ids=excluded_student_ids,
+        window=window,
     )
     total_count = len(student_scores)
 
@@ -90,12 +116,14 @@ def get_students_by_percentiles(target_round_id=None, thresholds=[30.0, 60.0], e
     return groups
 
 
-def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[], excluded_student_ids=[]):
-    """시드 점수 기반 팀 자동 편성"""
+def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[], excluded_student_ids=[], window=None):
+    """시드 점수 기반 팀 자동 편성.
+    window는 get_student_seed_scores와 동일 (None=전체 누적, 1/3/5=직전 N회차 평균)."""
     groups = get_students_by_percentiles(
         target_round_id=target_round.id,
-        thresholds=thresholds, 
-        excluded_student_ids=excluded_student_ids
+        thresholds=thresholds,
+        excluded_student_ids=excluded_student_ids,
+        window=window,
     )
     existing_teams = list(Team.objects.filter(round=target_round).order_by("id"))
 
