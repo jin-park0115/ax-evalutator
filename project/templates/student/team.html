@@ -23,8 +23,8 @@
       <ul class="list-group list-group-flush">
         {% for m in members %}
           <li class="list-group-item">
-            <span class="fw-semibold">{{ m.student.name }}</span>
-            {% if m.student.user_id == user.id %}
+            <span class="fw-semibold">{{ m.student.username }}</span>
+            {% if m.student_id == user.id %}
               <span class="badge bg-primary ms-2">나</span>
             {% endif %}
           </li>
