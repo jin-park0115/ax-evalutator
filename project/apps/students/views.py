@@ -29,7 +29,22 @@ def student_home(request):
     progress = None
 
     if not round_obj:
-        state = "before"
+        # 진행 중인 회차가 없다 — 아직 시작 전이거나, 방금 회차가
+        # 종료돼서 다음 회차가 아직 작성 중인 경우다. 후자라면 홈
+        # 화면이 "아직 시작 안 함"으로 되돌아가지 않고, 방금 끝난
+        # 회차의 결과를 계속 보여준다.
+        finished_round = (
+            EvaluationRound.objects
+            .filter(status=EvaluationRound.Status.FINISHED)
+            .order_by("-id")
+            .first()
+        )
+        if finished_round and ScoreResult.objects.filter(
+            round=finished_round, user=request.user
+        ).exists():
+            state = "published"
+        else:
+            state = "before"
     else:
         finalized = (
             TeamEvaluation.objects.filter(
@@ -78,15 +93,21 @@ def get_my_team(user):
     from apps.teams.models import TeamMember
     from apps.evaluations.models import EvaluationRound
 
-    # 1. 진행 중(IN_PROGRESS)이거나 확정된 회차 가져오기
+    # 1. 진행 중(IN_PROGRESS)인 회차를 먼저 찾고, 없으면(방금 종료돼서
+    # 다음 회차가 아직 작성 중일 때 등) 가장 최근에 "종료"된 회차를
+    # 보여준다 — 그래야 회차가 끝난 직후에도 자기 팀을 계속 볼 수 있다.
     active_round = (
         EvaluationRound.objects
         .filter(status=EvaluationRound.Status.IN_PROGRESS)
         .order_by("-id")
         .first()
+        or EvaluationRound.objects
+        .filter(status=EvaluationRound.Status.FINISHED)
+        .order_by("-id")
+        .first()
     )
 
-    # 2. 회차가 없거나, 작성 중(DRAFT) 상태라면 학생에게 팀을 안 보여줌
+    # 2. 회차가 없거나, 작성 중(DRAFT)뿐이라면 학생에게 팀을 안 보여줌
     if not active_round:
         return None, []
 
@@ -113,20 +134,41 @@ def get_visible_result(user):
     from apps.evaluations.models import EvaluationRound, ScoreResult
     from apps.scoring.services import calculate_team_rankings
 
+    # 진행 중인 회차가 있으면 그걸 보여주고, 없으면(방금 종료돼서 다음
+    # 회차가 아직 작성 중일 때 등) 가장 최근에 "종료"된 회차를 보여준다.
+    # 예전에는 "가장 최근에 만들어진 회차(상태 무관)"를 썼는데, 그러면
+    # 회차가 끝나자마자 새 회차가 생기는 순간 학생들이 방금 끝난 회차의
+    # 결과를 더 이상 못 보고 텅 빈 새 회차를 보게 되는 문제가 있었다.
     round_obj = (
         EvaluationRound.objects.filter(
             status=EvaluationRound.Status.IN_PROGRESS
         )
         .order_by("-id")
         .first()
-        or EvaluationRound.objects.order_by("-id").first()
+        or EvaluationRound.objects.filter(
+            status=EvaluationRound.Status.FINISHED
+        )
+        .order_by("-id")
+        .first()
     )
     if not round_obj:
         return None
 
     score = ScoreResult.objects.filter(round=round_obj, user=user).first()
     if not score:
-        return None
+        from apps.teams.models import TeamMember
+
+        # 점수가 없는 이유가 둘 중 뭔지 구분해서 보여준다 —
+        # (1) 이 회차에 팀 배정 자체가 안 된 경우("미배정")
+        # (2) 팀 배정은 됐지만 아직 점수 집계 전인 경우
+        was_assigned = TeamMember.objects.filter(
+            team__round=round_obj, student=user
+        ).exists()
+        return {
+            "not_participated": not was_assigned,
+            "not_calculated": was_assigned,
+            "round_name": round_obj.name,
+        }
 
     team_first = None
     team_rankings = None

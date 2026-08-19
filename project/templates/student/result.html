@@ -10,6 +10,14 @@
     <div class="alert alert-info">
       아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
     </div>
+  {% elif result.not_participated %}
+    <div class="alert alert-secondary">
+      {{ result.round_name }}에는 팀 배정(미배정)이 되지 않아 결과가 없습니다.
+    </div>
+  {% elif result.not_calculated %}
+    <div class="alert alert-info">
+      {{ result.round_name }}에 참여했지만 아직 점수가 집계되지 않았습니다. 집계 후 이 화면에 표시됩니다.
+    </div>
   {% else %}
 
     {% if result.final_score is not None %}
