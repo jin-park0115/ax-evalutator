@@ -17,12 +17,12 @@
 
   {% if r.final_score is not None %}
     {% if compact %}
-      <p class="mb-2">최종 점수: <strong>{{ r.final_score }}</strong></p>
+      <p class="mb-2">최종 점수: <strong>{{ r.final_score|floatformat:2 }}</strong></p>
     {% else %}
       <div class="card mb-3">
         <div class="card-body">
           <div class="text-muted small">최종 점수</div>
-          <div class="display-6">{{ r.final_score }}</div>
+          <div class="display-6">{{ r.final_score|floatformat:2 }}</div>
         </div>
       </div>
     {% endif %}
@@ -34,7 +34,7 @@
         <div class="card h-100">
           <div class="card-body">
             <div class="text-muted small">팀 점수</div>
-            <div class="fs-4">{{ r.team_score }}</div>
+            <div class="fs-4">{{ r.team_score|floatformat:2 }}</div>
           </div>
         </div>
       </div>
@@ -45,7 +45,7 @@
         <div class="card h-100">
           <div class="card-body">
             <div class="text-muted small">개인 점수</div>
-            <div class="fs-4">{{ r.personal_score }}</div>
+            <div class="fs-4">{{ r.personal_score|floatformat:2 }}</div>
           </div>
         </div>
       </div>
@@ -89,7 +89,7 @@
               <tr>
                 <td>{{ row.rank }}위</td>
                 <td>{{ row.team_name }}</td>
-                <td>{{ row.score }}점</td>
+                <td>{{ row.score|floatformat:2 }}점</td>
               </tr>
               {% endfor %}
             </tbody>

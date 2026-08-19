@@ -22,9 +22,11 @@
     {% if result.history %}
       <h5 class="mt-4 mb-3">지난 회차 결과</h5>
       {% for r in result.history %}
-        <div class="mb-4">
-          <p class="mb-2 fw-bold" style="font-size: calc(1rem + 1.5px);">{{ r.round_name }}</p>
-          {% include "student/_result_round_card.html" with compact=True %}
+        <div class="card mb-3">
+          <div class="card-body">
+            <p class="mb-2 fw-bold" style="font-size: calc(1rem + 1.5px);">{{ r.round_name }}</p>
+            {% include "student/_result_round_card.html" with compact=True %}
+          </div>
         </div>
       {% endfor %}
     {% endif %}
