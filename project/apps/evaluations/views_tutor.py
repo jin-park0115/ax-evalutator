@@ -9,6 +9,18 @@ from apps.evaluations.models import (
 )
 
 
+def _parse_score_weights(request):
+    """POST의 학생/튜터 평가 비중(%)을 0~1 비율로 변환한다.
+    합이 100이 아니면 (None, None)을 반환한다."""
+    student_weight = request.POST.get("student_weight", "50")
+    tutor_weight = request.POST.get("tutor_weight", "50")
+    sw = float(student_weight) / 100
+    tw = float(tutor_weight) / 100
+    if round(sw + tw, 6) != 1.0:
+        return None, None
+    return sw, tw
+
+
 # =========================================================
 # 회차 관리 (실 DB 연동 완료)
 # URL: /tutor/rounds/
@@ -27,24 +39,31 @@ def round_list(request):
         end_date = request.POST.get("end_date") or request.POST.get("end_at")
 
         if title and start_date and end_date:
+            sw, tw = _parse_score_weights(request)
+            if sw is None:
+                messages.error(request, "학생 평가 비중과 튜터 평가 비중의 합은 100%여야 합니다.")
+                return redirect("tutor_rounds")
+
             if round_id:
                 # 회차 수정
                 round_obj = get_object_or_404(EvaluationRound, id=round_id)
                 round_obj.name = title
                 round_obj.start_at = start_date
                 round_obj.end_at = end_date
-                round_obj.save(update_fields=["name", "start_at", "end_at"])
+                round_obj.student_weight = sw
+                round_obj.tutor_weight = tw
+                round_obj.save(
+                    update_fields=["name", "start_at", "end_at", "student_weight", "tutor_weight"]
+                )
                 messages.success(request, f"{title} 회차가 수정되었습니다.")
             else:
                 # 회차 생성
-                student_weight = request.POST.get("student_weight", 0.5)
-                tutor_weight = request.POST.get("tutor_weight", 0.5)
                 EvaluationRound.objects.create(
                     name=title,
                     start_at=start_date,
                     end_at=end_date,
-                    student_weight=float(student_weight),
-                    tutor_weight=float(tutor_weight),
+                    student_weight=sw,
+                    tutor_weight=tw,
                 )
                 messages.success(request, f"{title} 회차가 생성되었습니다.")
             return redirect("tutor_rounds")
@@ -719,6 +738,42 @@ def tutor_settings(request):
     return render(
         request,
         "tutor/settings.html",
+        {
+            "round": round_obj,
+            "rounds": EvaluationRound.objects.order_by("-id"),
+        },
+    )
+
+
+# =========================================================
+# 최종점수 가중치 설정 (실 DB 연동 — student_weight / tutor_weight)
+# URL: /tutor/score-weights/
+# =========================================================
+@staff_member_required
+def score_weight_settings(request):
+    round_id = request.GET.get("round_id") or request.POST.get("round_id")
+    if round_id:
+        round_obj = get_object_or_404(EvaluationRound, id=round_id)
+    else:
+        round_obj = EvaluationRound.objects.order_by("-id").first()
+
+    if request.method == "POST" and round_obj:
+        student_weight = request.POST.get("student_weight")
+        tutor_weight = request.POST.get("tutor_weight")
+        sw = float(student_weight) / 100
+        tw = float(tutor_weight) / 100
+        if round(sw + tw, 6) != 1.0:
+            messages.error(request, "학생 평가 비중과 튜터 평가 비중의 합은 100%여야 합니다.")
+            return redirect(f"/tutor/score-weights/?round_id={round_obj.id}")
+        round_obj.student_weight = sw
+        round_obj.tutor_weight = tw
+        round_obj.save()
+        messages.success(request, "가중치 설정이 저장되었습니다.")
+        return redirect(f"/tutor/score-weights/?round_id={round_obj.id}")
+
+    return render(
+        request,
+        "tutor/score_weight_settings.html",
         {
             "round": round_obj,
             "rounds": EvaluationRound.objects.order_by("-id"),
