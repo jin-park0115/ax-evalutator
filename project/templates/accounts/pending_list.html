@@ -40,7 +40,7 @@
 
                         {% for pending_user in pending_users %}
                         <tr>
-                            <td>{{ pending_user.username }}</td>
+                            <td>{{ pending_user.display_name }}</td>
                             <td>{{ pending_user.email }}</td>
                             <td>{{ pending_user.date_joined|date:"Y-m-d" }}</td>
                             <td class="text-center">
@@ -113,7 +113,7 @@
 
                         {% for approved_user in approved_users %}
                         <tr>
-                            <td>{{ approved_user.username }}</td>
+                            <td>{{ approved_user.display_name }}</td>
                             <td>{{ approved_user.email }}</td>
                             <td>{{ approved_user.date_joined|date:"Y-m-d" }}</td>
                             <td class="text-center">

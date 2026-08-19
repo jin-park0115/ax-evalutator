@@ -232,6 +232,7 @@ def calculate_round_scores(request, round_id):
 def team_build(request):
     from apps.teams.models import Team, TeamMember
     from apps.teams.views import is_round_editable
+    from apps.teams.services import get_user_display_name
 
     round_id = request.GET.get("round_id")
     if round_id:
@@ -277,14 +278,15 @@ def team_build(request):
             team.name: {
                 "eval_opened": bool(team.eval_opened_at),
                 "members": [
-                    {"id": m.student.id, "username": m.student.username}
+                    {"id": m.student.id, "username": get_user_display_name(m.student)}
                     for m in team.members.all()
                 ],
             }
             for team in teams
         },
         "unassigned": [
-            {"id": s.id, "username": s.username} for s in unassigned_students
+            {"id": s.id, "username": get_user_display_name(s)}
+            for s in unassigned_students
         ],
     }
 
