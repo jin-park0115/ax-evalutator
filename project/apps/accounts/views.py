@@ -8,6 +8,7 @@ from .forms import CustomUserCreationForm
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
+from apps.teams.services import get_user_display_name
 
 User = get_user_model()
 
@@ -55,8 +56,10 @@ def logout_view(request):
 # 1. 승인 대기 / 역할 부여 대기 회원 목록 조회
 @staff_member_required
 def pending_user_list(request):
-    pending_users = User.objects.filter(role=User.Role.PENDING)
-    approved_users = User.objects.filter(role=User.Role.APPROVED)
+    pending_users = list(User.objects.filter(role=User.Role.PENDING))
+    approved_users = list(User.objects.filter(role=User.Role.APPROVED))
+    for u in pending_users + approved_users:
+        u.display_name = get_user_display_name(u)
     return render(
         request,
         "accounts/pending_list.html",
@@ -128,6 +131,9 @@ def user_list(request):
     ).order_by("-role", "username")
     if query:
         users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+    users = list(users)
+    for u in users:
+        u.display_name = get_user_display_name(u)
     return render(request, "accounts/user_list.html", {"users": users, "query": query})
 
 

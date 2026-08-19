@@ -46,7 +46,7 @@
 
                         {% for target_user in users %}
                         <tr>
-                            <td>{{ target_user.username }}</td>
+                            <td>{{ target_user.display_name }}</td>
                             <td>{{ target_user.email }}</td>
                             <td class="text-center">
                                 {% if target_user.role == "ADMIN" %}
