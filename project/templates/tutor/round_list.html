@@ -323,7 +323,7 @@
                                         <input type="hidden" name="status" value="finished">
                                         <button
                                             type="submit"
-                                            class="btn btn-sm {% if round.remaining_count %}btn-outline-warning{% else %}btn-success{% endif %}"
+                                            class="btn btn-sm {% if round.remaining_count %}btn-danger{% else %}btn-success{% endif %}"
                                             title="{% if round.remaining_count %}아직 미제출 학생이 {{ round.remaining_count }}명 있습니다. {% endif %}회차를 종료 처리합니다. 종료 후 결과는 다음 회차 시드 계산에 반영됩니다."
                                         >
                                             회차 종료{% if round.remaining_count %} ({{ round.remaining_count }}명 미제출){% endif %}
