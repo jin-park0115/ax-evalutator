@@ -52,6 +52,31 @@ def round_list(request):
     # DB에서 전체 회차 조회
     rounds = EvaluationRound.objects.all().order_by("-id")
 
+    # "회차 종료" 전에 아직 평가를 제출 안 한 학생이 몇 명인지 미리
+    # 계산해서, 튜터가 그 수를 보고 종료할지 판단할 수 있게 한다
+    # (evaluation_status 화면의 미제출자 판정 기준과 동일).
+    from apps.teams.models import TeamMember
+    from apps.evaluations.models import IndividualEvaluation, TeamEvaluation
+
+    for round_obj in rounds:
+        member_student_ids = set(
+            TeamMember.objects.filter(team__round=round_obj).values_list(
+                "student_id", flat=True
+            )
+        )
+        submitted_ids = set(
+            IndividualEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("evaluator_id", flat=True)
+        ) | set(
+            TeamEvaluation.objects.filter(
+                round=round_obj, is_final=True
+            ).values_list("submitted_by_id", flat=True)
+        )
+        # DB에 저장되는 필드가 아니라, 템플릿에서 쓸 수 있게 잠깐 붙여두는
+        # 값이다 (round.save()를 안 하므로 DB에는 영향 없음).
+        round_obj.remaining_count = len(member_student_ids - submitted_ids)
+
     return render(
         request,
         "tutor/round_list.html",

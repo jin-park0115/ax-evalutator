@@ -218,11 +218,21 @@ def get_visible_result(user):
     )
     current = _build_round_result(user, current_round) if current_round else None
 
+    from apps.teams.models import TeamMember
+
     history = []
     for round_obj in EvaluationRound.objects.filter(
         status=EvaluationRound.Status.FINISHED
     ).order_by("-id"):
-        if ScoreResult.objects.filter(round=round_obj, user=user).exists():
+        # 점수가 집계된 회차는 물론이고, 팀 배정만 되고 아직(또는 영영)
+        # 집계가 안 된 채로 종료된 회차도 목록에서 빠지지 않게 포함한다
+        # — 그래야 "집계 없이 종료" 같은 경우에도 회차 자체가 통째로
+        # 사라지지 않고 "아직 집계되지 않음" 상태로라도 보인다.
+        has_score = ScoreResult.objects.filter(round=round_obj, user=user).exists()
+        was_assigned = TeamMember.objects.filter(
+            team__round=round_obj, student=user
+        ).exists()
+        if has_score or was_assigned:
             history.append(_build_round_result(user, round_obj))
 
     if not current and not history:
