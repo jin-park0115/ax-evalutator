@@ -312,6 +312,24 @@
                                         </button>
                                     </form>
 
+                                    {% if round.status == "in_progress" %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'update_round_status' round.id %}"
+                                        class="d-inline m-0"
+                                        onsubmit="return confirm('[{{ round.name }}] 회차를 종료 처리합니다.\n종료 후에는 다음 회차의 시드 점수 계산에 이 회차 결과가 반영됩니다.\n(점수 집계를 먼저 해두지 않았다면 미리 해두는 것을 권장합니다.)\n계속할까요?');"
+                                    >
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="finished">
+                                        <button
+                                            type="submit"
+                                            class="btn btn-sm btn-outline-success"
+                                        >
+                                            종료
+                                        </button>
+                                    </form>
+                                    {% endif %}
+
                                 </div>
 
                             </td>
