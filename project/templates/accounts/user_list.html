@@ -64,6 +64,7 @@
                             </td>
                             <td>{{ target_user.date_joined|date:"Y-m-d" }}</td>
                             <td class="text-center">
+                                {% if request.user.is_superuser %}
                                 <div class="d-flex justify-content-center gap-2">
 
                                     {% if target_user.role == "ADMIN" %}
@@ -107,6 +108,9 @@
                                     </form>
 
                                 </div>
+                                {% else %}
+                                <span class="text-muted small">조회만 가능</span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
