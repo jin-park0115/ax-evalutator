@@ -28,14 +28,14 @@
 
         <div class="table-responsive">
 
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 eval-table">
 
                 <thead class="table-light">
 
                     <tr>
-                        <th>회차</th>
-                        <th>유형</th>
-                        <th>문항 수</th>
+                        <th class="text-center">회차</th>
+                        <th class="text-center">유형</th>
+                        <th class="text-center">문항 수</th>
                     </tr>
 
                 </thead>
@@ -46,11 +46,11 @@
 
                     <tr>
 
-                        <td>
+                        <td class="text-center">
                             {{ template.round.name }}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             {% if template.type == "TEAM" %}
                                 <span class="badge text-bg-primary">팀 평가</span>
                             {% elif template.type == "INDIVIDUAL" %}
@@ -60,7 +60,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             {{ template.criteria|length }}개
                         </td>
 

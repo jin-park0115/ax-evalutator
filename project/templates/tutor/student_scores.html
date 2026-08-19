@@ -21,18 +21,18 @@
 
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle eval-table">
 
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 60px;">순위</th>
+                            <th style="width: 60px;" class="text-center">순위</th>
                             <th>이름</th>
                             <th>이메일</th>
-                            <th>참여 회차</th>
-                            <th>평균 최종점수</th>
-                            <th>최근 회차</th>
-                            <th>최근 회차 최종점수</th>
-                            <th>최근 회차 석차</th>
+                            <th class="text-center">참여 회차</th>
+                            <th class="text-center">평균 최종점수</th>
+                            <th class="text-center">최근 회차</th>
+                            <th class="text-center">최근 회차 최종점수</th>
+                            <th class="text-center">최근 회차 석차</th>
                         </tr>
                     </thead>
 
@@ -40,11 +40,11 @@
 
                         {% for row in overview %}
                         <tr>
-                            <td>{{ forloop.counter }}</td>
+                            <td class="text-center">{{ forloop.counter }}</td>
                             <td>{{ row.student.username }}</td>
                             <td>{{ row.student.email }}</td>
-                            <td>{{ row.round_count }}회</td>
-                            <td>
+                            <td class="text-center">{{ row.round_count }}회</td>
+                            <td class="text-center">
                                 {% if row.round_count %}
                                 <strong>{{ row.avg_score }}</strong>
                                 {% else %}
@@ -52,9 +52,9 @@
                                 {% endif %}
                             </td>
                             {% if row.latest %}
-                            <td>{{ row.latest.round.name }}</td>
-                            <td>{{ row.latest.final_score|floatformat:2 }}</td>
-                            <td>
+                            <td class="text-center">{{ row.latest.round.name }}</td>
+                            <td class="text-center">{{ row.latest.final_score|floatformat:2 }}</td>
+                            <td class="text-center">
                                 {% if row.latest.rank %}
                                 {{ row.latest.rank }}위
                                 {% else %}
@@ -62,7 +62,7 @@
                                 {% endif %}
                             </td>
                             {% else %}
-                            <td colspan="3" class="text-muted">채점된 회차 없음</td>
+                            <td colspan="3" class="text-muted text-center">채점된 회차 없음</td>
                             {% endif %}
                         </tr>
                         {% empty %}

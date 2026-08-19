@@ -25,14 +25,14 @@
 
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle eval-table">
 
                     <thead class="table-light">
                         <tr>
                             <th>이름</th>
                             <th>이메일</th>
                             <th>가입일</th>
-                            <th style="width: 220px;">처리</th>
+                            <th style="width: 220px;" class="text-center">처리</th>
                         </tr>
                     </thead>
 
@@ -43,8 +43,8 @@
                             <td>{{ pending_user.username }}</td>
                             <td>{{ pending_user.email }}</td>
                             <td>{{ pending_user.date_joined|date:"Y-m-d" }}</td>
-                            <td>
-                                <div class="d-flex gap-2">
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
 
                                     <form method="post"
                                           action="{% url 'approve_user' pending_user.id %}"
@@ -98,14 +98,14 @@
 
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle eval-table">
 
                     <thead class="table-light">
                         <tr>
                             <th>이름</th>
                             <th>이메일</th>
                             <th>가입일</th>
-                            <th style="width: 320px;">역할 부여</th>
+                            <th style="width: 320px;" class="text-center">역할 부여</th>
                         </tr>
                     </thead>
 
@@ -116,8 +116,8 @@
                             <td>{{ approved_user.username }}</td>
                             <td>{{ approved_user.email }}</td>
                             <td>{{ approved_user.date_joined|date:"Y-m-d" }}</td>
-                            <td>
-                                <div class="d-flex gap-2">
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
 
                                     <form method="post"
                                           action="{% url 'assign_role' approved_user.id %}"

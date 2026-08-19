@@ -36,16 +36,16 @@
     <div class="card-body p-0">
         <div class="table-responsive">
 
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 eval-table">
 
                 <thead class="table-light">
                     <tr>
-                        <th>팀</th>
-                        <th>팀원 수</th>
-                        <th>발표</th>
-                        <th>내 평가 점수</th>
-                        <th>상태</th>
-                        <th>관리</th>
+                        <th class="text-center">팀</th>
+                        <th class="text-center">팀원 수</th>
+                        <th class="text-center">발표</th>
+                        <th class="text-center">내 평가 점수</th>
+                        <th class="text-center">상태</th>
+                        <th class="text-center">관리</th>
                     </tr>
                 </thead>
 
@@ -53,11 +53,11 @@
 
                     {% for evaluation in evaluations %}
                     <tr>
-                        <td>{{ evaluation.team.name }}</td>
+                        <td class="text-center">{{ evaluation.team.name }}</td>
 
-                        <td>{{ evaluation.member_count }}명</td>
+                        <td class="text-center">{{ evaluation.member_count }}명</td>
 
-                        <td>
+                        <td class="text-center">
                             {% if evaluation.team.eval_opened_at %}
                                 <span class="badge text-bg-success">발표 시작됨</span>
                             {% elif not formation_confirmed %}
@@ -75,7 +75,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             {% if evaluation.done %}
                                 {{ evaluation.score|floatformat:1 }}점
                             {% else %}
@@ -83,7 +83,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             {% if evaluation.done %}
                                 <span class="badge text-bg-success">평가 완료</span>
                             {% else %}
@@ -91,7 +91,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             <a class="btn btn-sm btn-outline-primary"
                                href="{% url 'tutor_team_evaluation_form' evaluation.team.id %}">
                                 {% if evaluation.done %}수정{% else %}평가하기{% endif %}
