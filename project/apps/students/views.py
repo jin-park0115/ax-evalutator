@@ -130,29 +130,11 @@ def get_my_team(user):
     return tm.team, members
 
 
-def get_visible_result(user):
-    from apps.evaluations.models import EvaluationRound, ScoreResult
+def _build_round_result(user, round_obj):
+    """한 회차에 대한 이 학생의 결과 dict를 만든다. 점수가 없으면
+    "미배정"/"집계 전" 중 어떤 상태인지만 담아서 돌려준다."""
+    from apps.evaluations.models import ScoreResult
     from apps.scoring.services import calculate_team_rankings
-
-    # 진행 중인 회차가 있으면 그걸 보여주고, 없으면(방금 종료돼서 다음
-    # 회차가 아직 작성 중일 때 등) 가장 최근에 "종료"된 회차를 보여준다.
-    # 예전에는 "가장 최근에 만들어진 회차(상태 무관)"를 썼는데, 그러면
-    # 회차가 끝나자마자 새 회차가 생기는 순간 학생들이 방금 끝난 회차의
-    # 결과를 더 이상 못 보고 텅 빈 새 회차를 보게 되는 문제가 있었다.
-    round_obj = (
-        EvaluationRound.objects.filter(
-            status=EvaluationRound.Status.IN_PROGRESS
-        )
-        .order_by("-id")
-        .first()
-        or EvaluationRound.objects.filter(
-            status=EvaluationRound.Status.FINISHED
-        )
-        .order_by("-id")
-        .first()
-    )
-    if not round_obj:
-        return None
 
     score = ScoreResult.objects.filter(round=round_obj, user=user).first()
     if not score:
@@ -165,9 +147,9 @@ def get_visible_result(user):
             team__round=round_obj, student=user
         ).exists()
         return {
+            "round_name": round_obj.name,
             "not_participated": not was_assigned,
             "not_calculated": was_assigned,
-            "round_name": round_obj.name,
         }
 
     team_first = None
@@ -210,6 +192,7 @@ def get_visible_result(user):
                 ]
 
     return {
+        "round_name": round_obj.name,
         "team_score": score.team_score if round_obj.team_rank_visible else None,
         "personal_score": score.individual_score if round_obj.individual_score_visible else None,
         "final_score": score.final_score,
@@ -217,6 +200,33 @@ def get_visible_result(user):
         "team_first": team_first,
         "team_rankings": team_rankings,
     }
+
+
+def get_visible_result(user):
+    from apps.evaluations.models import EvaluationRound, ScoreResult
+
+    # 진행 중인 회차는 따로 "현재 회차" 카드로 크게 보여주고, 이미
+    # 종료된 회차들은 그 아래에 "지난 회차 결과"로 나열한다. 예전에는
+    # 진행 중인 회차 하나만 보여줘서, 새 회차가 시작되는 순간 이전에
+    # 이미 받은 점수를 학생이 더 이상 볼 수 없는 문제가 있었다.
+    current_round = (
+        EvaluationRound.objects.filter(status=EvaluationRound.Status.IN_PROGRESS)
+        .order_by("-id")
+        .first()
+    )
+    current = _build_round_result(user, current_round) if current_round else None
+
+    history = []
+    for round_obj in EvaluationRound.objects.filter(
+        status=EvaluationRound.Status.FINISHED
+    ).order_by("-id"):
+        if ScoreResult.objects.filter(round=round_obj, user=user).exists():
+            history.append(_build_round_result(user, round_obj))
+
+    if not current and not history:
+        return None
+
+    return {"current": current, "history": history}
 
 
 # ==========================================

@@ -10,102 +10,28 @@
     <div class="alert alert-info">
       아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
     </div>
-  {% elif result.not_participated %}
-    <div class="alert alert-secondary">
-      {{ result.round_name }}에는 팀 배정(미배정)이 되지 않아 결과가 없습니다.
-    </div>
-  {% elif result.not_calculated %}
-    <div class="alert alert-info">
-      {{ result.round_name }}에 참여했지만 아직 점수가 집계되지 않았습니다. 집계 후 이 화면에 표시됩니다.
-    </div>
   {% else %}
 
-    {% if result.final_score is not None %}
-      <div class="card mb-4">
-        <div class="card-body">
-          <div class="text-muted small">최종 점수</div>
-          <div class="display-6">{{ result.final_score }}</div>
-        </div>
-      </div>
+    {% if result.current %}
+      <h5 class="mb-3">{{ result.current.round_name }} (현재 회차)</h5>
+      {% with r=result.current %}
+        {% include "student/_result_round_card.html" %}
+      {% endwith %}
     {% endif %}
 
-    <div class="row g-3 mb-4">
-      {% if result.team_score is not None %}
-        <div class="col-md-4">
-          <div class="card h-100">
-            <div class="card-body">
-              <div class="text-muted small">팀 점수</div>
-              <div class="fs-4">{{ result.team_score }}</div>
-            </div>
-          </div>
+    {% if result.history %}
+      <h5 class="mt-4 mb-3">지난 회차 결과</h5>
+      {% for r in result.history %}
+        <div class="mb-4">
+          <div class="text-muted small mb-2">{{ r.round_name }}</div>
+          {% include "student/_result_round_card.html" %}
         </div>
-      {% endif %}
-
-      {% if result.personal_score is not None %}
-        <div class="col-md-4">
-          <div class="card h-100">
-            <div class="card-body">
-              <div class="text-muted small">개인 점수</div>
-              <div class="fs-4">{{ result.personal_score }}</div>
-            </div>
-          </div>
-        </div>
-      {% endif %}
-
-      {% if result.rank is not None %}
-        <div class="col-md-4">
-          <div class="card h-100">
-            <div class="card-body">
-              <div class="text-muted small">내 석차</div>
-              <div class="fs-4">{{ result.rank }}위</div>
-            </div>
-          </div>
-        </div>
-      {% endif %}
-    </div>
-
-    {% if result.formula %}
-      <div class="card mb-4">
-        <div class="card-header">점수 계산 과정</div>
-        <div class="card-body">
-          <code>{{ result.formula }}</code>
-        </div>
-      </div>
+      {% endfor %}
     {% endif %}
 
-    {% if result.team_first %}
-      <div class="alert alert-success">
-        이번 회차 1위 팀은 <strong>{{ result.team_first }}</strong> 입니다.
-      </div>
-    {% endif %}
-
-    {% if result.team_rankings %}
-      <div class="card mb-4">
-        <div class="card-header">
-          <strong>전체 팀 순위</strong>
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-hover mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>순위</th>
-                  <th>팀</th>
-                  <th>점수</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in result.team_rankings %}
-                <tr>
-                  <td>{{ row.rank }}위</td>
-                  <td>{{ row.team_name }}</td>
-                  <td>{{ row.score }}점</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    {% if not result.current and not result.history %}
+      <div class="alert alert-info">
+        아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
       </div>
     {% endif %}
 
