@@ -3,10 +3,17 @@
     {{ r.round_name }}에는 팀 배정(미배정)이 되지 않아 결과가 없습니다.
   </div>
 {% elif r.not_calculated %}
+  {% if r.my_team_name %}
+    <p class="mb-2">내 팀: <strong>{{ r.my_team_name }}</strong></p>
+  {% endif %}
   <div class="alert alert-info">
     {{ r.round_name }}에 참여했지만 아직 점수가 집계되지 않았습니다. 집계 후 이 화면에 표시됩니다.
   </div>
 {% else %}
+
+  {% if r.my_team_name %}
+    <p class="mb-2">내 팀: <strong>{{ r.my_team_name }}</strong></p>
+  {% endif %}
 
   {% if r.final_score is not None %}
     {% if compact %}

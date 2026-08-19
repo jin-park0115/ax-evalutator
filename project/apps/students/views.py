@@ -143,13 +143,14 @@ def _build_round_result(user, round_obj):
         # 점수가 없는 이유가 둘 중 뭔지 구분해서 보여준다 —
         # (1) 이 회차에 팀 배정 자체가 안 된 경우("미배정")
         # (2) 팀 배정은 됐지만 아직 점수 집계 전인 경우
-        was_assigned = TeamMember.objects.filter(
+        my_membership = TeamMember.objects.filter(
             team__round=round_obj, student=user
-        ).exists()
+        ).select_related("team").first()
         return {
             "round_name": round_obj.name,
-            "not_participated": not was_assigned,
-            "not_calculated": was_assigned,
+            "not_participated": my_membership is None,
+            "not_calculated": my_membership is not None,
+            "my_team_name": my_membership.team.name if my_membership else None,
         }
 
     team_first = None
@@ -193,6 +194,7 @@ def _build_round_result(user, round_obj):
 
     return {
         "round_name": round_obj.name,
+        "my_team_name": score.team.name,
         "team_score": score.team_score if round_obj.team_rank_visible else None,
         "personal_score": score.individual_score if round_obj.individual_score_visible else None,
         "final_score": score.final_score,
