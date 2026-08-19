@@ -317,16 +317,35 @@
                                         method="post"
                                         action="{% url 'update_round_status' round.id %}"
                                         class="d-inline m-0"
-                                        onsubmit="return confirm('[{{ round.name }}] 회차를 종료 처리합니다.\n종료 후에는 다음 회차의 시드 점수 계산에 이 회차 결과가 반영됩니다.\n(점수 집계를 먼저 해두지 않았다면 미리 해두는 것을 권장합니다.)\n계속할까요?');"
+                                        onsubmit="return confirm('{% if round.remaining_count %}⚠️ 아직 평가를 제출하지 않은 학생이 {{ round.remaining_count }}명 있습니다.\n지금 종료하면 이 학생들은 더 이상 평가를 제출할 수 없습니다.\n\n{% endif %}[{{ round.name }}] 회차를 종료 처리합니다.\n종료 후에는 다음 회차의 시드 점수 계산에 이 회차 결과가 반영됩니다.\n(점수 집계를 먼저 해두지 않았다면 미리 해두는 것을 권장합니다.)\n계속할까요?');"
                                     >
                                         {% csrf_token %}
                                         <input type="hidden" name="status" value="finished">
                                         <button
                                             type="submit"
-                                            class="btn btn-sm btn-success"
-                                            title="회차를 종료 처리합니다. 종료 후 결과는 다음 회차 시드 계산에 반영됩니다."
+                                            class="btn btn-sm {% if round.remaining_count %}btn-outline-warning{% else %}btn-success{% endif %}"
+                                            title="{% if round.remaining_count %}아직 미제출 학생이 {{ round.remaining_count }}명 있습니다. {% endif %}회차를 종료 처리합니다. 종료 후 결과는 다음 회차 시드 계산에 반영됩니다."
                                         >
-                                            회차 종료
+                                            회차 종료{% if round.remaining_count %} ({{ round.remaining_count }}명 미제출){% endif %}
+                                        </button>
+                                    </form>
+                                    {% endif %}
+
+                                    {% if round.status == "finished" %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'update_round_status' round.id %}"
+                                        class="d-inline m-0"
+                                        onsubmit="return confirm('[{{ round.name }}] 회차를 다시 진행 중 상태로 되돌립니다.\n학생들이 다시 평가를 제출할 수 있게 됩니다.\n계속할까요?');"
+                                    >
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="in_progress">
+                                        <button
+                                            type="submit"
+                                            class="btn btn-sm btn-outline-primary"
+                                            title="회차를 다시 진행 중 상태로 되돌려 평가를 계속 받을 수 있게 합니다."
+                                        >
+                                            다시 진행
                                         </button>
                                     </form>
                                     {% endif %}
