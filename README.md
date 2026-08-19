@@ -14,6 +14,17 @@
 프론트엔드와 백엔드를 분리된 서버로 운영하지 않고, Django가 화면 렌더링(Template)부터
 비즈니스 로직(ORM/services), 관리자 화면(Admin)까지 모두 담당합니다.
 
+## 팀 구성
+
+| 역할 | 이름 |
+|---|---|
+| ![Backend](https://img.shields.io/badge/Backend-2E8B57?style=flat-square) | 전예진 |
+| ![Backend](https://img.shields.io/badge/Backend-2E8B57?style=flat-square) | 채희주 |
+| ![Frontend](https://img.shields.io/badge/Frontend-4169E1?style=flat-square) | 안형준 |
+| ![Frontend](https://img.shields.io/badge/Frontend-4169E1?style=flat-square) | 장충만 |
+| ![PM](https://img.shields.io/badge/PM-FF8C00?style=flat-square) | 김예주 |
+| ![PM](https://img.shields.io/badge/PM-FF8C00?style=flat-square) | 박 진 |
+
 ## 요구 사항
 
 - Python 3.10 이상
