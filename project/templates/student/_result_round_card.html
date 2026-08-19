@@ -1,0 +1,102 @@
+{% if r.not_participated %}
+  <div class="alert alert-secondary">
+    {{ r.round_name }}에는 팀 배정(미배정)이 되지 않아 결과가 없습니다.
+  </div>
+{% elif r.not_calculated %}
+  {% if r.my_team_name %}
+    <p class="mb-2">내 팀: <strong>{{ r.my_team_name }}</strong></p>
+  {% endif %}
+  <div class="alert alert-info">
+    {{ r.round_name }}에 참여했지만 아직 점수가 집계되지 않았습니다. 집계 후 이 화면에 표시됩니다.
+  </div>
+{% else %}
+
+  {% if r.my_team_name %}
+    <p class="mb-2">내 팀: <strong>{{ r.my_team_name }}</strong></p>
+  {% endif %}
+
+  {% if r.final_score is not None %}
+    {% if compact %}
+      <p class="mb-2">최종 점수: <strong>{{ r.final_score|floatformat:2 }}</strong></p>
+    {% else %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="text-muted small">최종 점수</div>
+          <div class="display-6">{{ r.final_score|floatformat:2 }}</div>
+        </div>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <div class="row g-3 mb-3">
+    {% if r.team_score is not None %}
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">팀 점수</div>
+            <div class="fs-4">{{ r.team_score|floatformat:2 }}</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if r.personal_score is not None %}
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">개인 점수</div>
+            <div class="fs-4">{{ r.personal_score|floatformat:2 }}</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if r.rank is not None %}
+      <div class="col-md-4">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="text-muted small">내 석차</div>
+            <div class="fs-4">{{ r.rank }}위</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if r.team_first %}
+    <div class="alert alert-success">
+      이번 회차 1위 팀은 <strong>{{ r.team_first }}</strong> 입니다.
+    </div>
+  {% endif %}
+
+  {% if r.team_rankings %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>전체 팀 순위</strong>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>순위</th>
+                <th>팀</th>
+                <th>점수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in r.team_rankings %}
+              <tr>
+                <td>{{ row.rank }}위</td>
+                <td>{{ row.team_name }}</td>
+                <td>{{ row.score|floatformat:2 }}점</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+{% endif %}
