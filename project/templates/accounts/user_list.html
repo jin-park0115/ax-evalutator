@@ -35,10 +35,10 @@
                         <tr>
                             <th>이름</th>
                             <th>이메일</th>
-                            <th>역할</th>
-                            <th>상태</th>
+                            <th class="text-center">역할</th>
+                            <th class="text-center">상태</th>
                             <th>가입일</th>
-                            <th style="width: 320px;">관리</th>
+                            <th style="width: 320px;" class="text-center">관리</th>
                         </tr>
                     </thead>
 
@@ -48,14 +48,14 @@
                         <tr>
                             <td>{{ target_user.username }}</td>
                             <td>{{ target_user.email }}</td>
-                            <td>
+                            <td class="text-center">
                                 {% if target_user.role == "ADMIN" %}
                                 <span class="badge text-bg-primary">관리자</span>
                                 {% else %}
                                 <span class="badge text-bg-secondary">학생</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if target_user.is_active %}
                                 <span class="badge text-bg-success">활성</span>
                                 {% else %}
@@ -63,7 +63,7 @@
                                 {% endif %}
                             </td>
                             <td>{{ target_user.date_joined|date:"Y-m-d" }}</td>
-                            <td>
+                            <td class="text-center">
                                 <div class="d-flex justify-content-center gap-2">
 
                                     {% if target_user.role == "ADMIN" %}

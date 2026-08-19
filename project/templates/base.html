@@ -160,11 +160,11 @@
       transition: width 0.3s ease-out;
     }
 
-    /* 관리자/튜터 목록 테이블 공용 스타일 — 항목마다 중앙 정렬 +
-       구분선. nowrap으로 옆 칸을 침범할 수 있어 글자 크기를 살짝
-       줄여서 한 줄에 들어가게 함 */
+    /* 관리자/튜터 목록 테이블 공용 스타일 — 구분선 + 줄바꿈 방지.
+       정렬은 기본 왼쪽(텍스트가 읽기 편함)이고, 숫자/뱃지/버튼처럼
+       짧은 항목만 각 셀에 text-center를 따로 붙여서 가운데로 맞춘다.
+       nowrap으로 옆 칸을 침범할 수 있어 글자 크기를 살짝 줄임 */
     .eval-table th, .eval-table td {
-      text-align: center;
       vertical-align: middle;
       white-space: nowrap;
       font-size: 0.85rem;

@@ -192,10 +192,10 @@
                         <tr>
                             <th>평가명</th>
                             <th>기간</th>
-                            <th>팀 수</th>
-                            <th>집계 결과</th>
-                            <th>상태</th>
-                            <th>관리</th>
+                            <th class="text-center">팀 수</th>
+                            <th class="text-center">집계 결과</th>
+                            <th class="text-center">상태</th>
+                            <th class="text-center">관리</th>
                         </tr>
 
                     </thead>
@@ -222,13 +222,13 @@
 
 
                             <!-- 팀 수 -->
-                            <td>
+                            <td class="text-center">
                                 {{ round.teams.count }}팀
                             </td>
 
 
                             <!-- 집계 결과 -->
-                            <td>
+                            <td class="text-center">
                                 {% if round.score_results.count %}
                                     <span class="badge text-bg-success">
                                         {{ round.score_results.count }}명 집계됨
@@ -240,7 +240,7 @@
 
 
                             <!-- 상태 -->
-                            <td>
+                            <td class="text-center">
 
                                 {% if round.status == "in_progress" %}
 
@@ -266,7 +266,7 @@
 
 
                             <!-- 관리 -->
-                            <td>
+                            <td class="text-center">
 
                                 <div class="d-flex flex-wrap justify-content-center gap-1">
 

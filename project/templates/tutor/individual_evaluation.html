@@ -43,10 +43,10 @@
                 <thead class="table-light">
                     <tr>
                         <th>학생</th>
-                        <th>팀</th>
-                        <th>내 평가 점수</th>
-                        <th>상태</th>
-                        <th>관리</th>
+                        <th class="text-center">팀</th>
+                        <th class="text-center">내 평가 점수</th>
+                        <th class="text-center">상태</th>
+                        <th class="text-center">관리</th>
                     </tr>
                 </thead>
 
@@ -56,9 +56,9 @@
                     <tr>
                         <td>{{ evaluation.student.username }}</td>
 
-                        <td>{{ evaluation.team.name }}</td>
+                        <td class="text-center">{{ evaluation.team.name }}</td>
 
-                        <td>
+                        <td class="text-center">
                             {% if evaluation.done %}
                                 {{ evaluation.score|floatformat:1 }}점
                             {% else %}
@@ -66,7 +66,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             {% if evaluation.done %}
                                 <span class="badge text-bg-success">평가 완료</span>
                             {% else %}
@@ -74,7 +74,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
+                        <td class="text-center">
                             <a class="btn btn-sm btn-outline-primary"
                                href="{% url 'tutor_individual_evaluation_form' evaluation.student.id %}?round_id={{ round.id }}">
                                 {% if evaluation.done %}수정{% else %}평가하기{% endif %}
