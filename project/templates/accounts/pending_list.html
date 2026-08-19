@@ -129,6 +129,7 @@
                                         </button>
                                     </form>
 
+                                    {% if request.user.is_superuser %}
                                     <form method="post"
                                           action="{% url 'assign_role' approved_user.id %}"
                                           class="d-inline">
@@ -138,6 +139,7 @@
                                             관리자로 부여
                                         </button>
                                     </form>
+                                    {% endif %}
 
                                 </div>
                             </td>

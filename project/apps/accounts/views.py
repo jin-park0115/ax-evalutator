@@ -81,6 +81,9 @@ def approve_user(request, user_id):
 
 
 # 3. 역할 부여 처리 (APPROVED -> STUDENT/ADMIN, 이 시점부터 로그인 가능)
+# 관리자 부여는 최고 관리자(superuser)만 할 수 있다 — 그렇지 않으면 일반
+# 관리자가 다른 학생을 관리자로 만들고, 그 관리자가 다시 다른 관리자를
+# 비활성화/강등시키는 식으로 권한이 무한정 퍼질 수 있다.
 @staff_member_required
 def assign_role(request, user_id):
     if request.method == "POST":
@@ -88,6 +91,9 @@ def assign_role(request, user_id):
         role = request.POST.get("role")
         if role not in (User.Role.STUDENT, User.Role.ADMIN):
             messages.error(request, "역할은 학생 또는 관리자 중에서 선택해야 합니다.")
+            return redirect("pending_user_list")
+        if role == User.Role.ADMIN and not request.user.is_superuser:
+            messages.error(request, "관리자 권한 부여는 최고 관리자만 할 수 있습니다.")
             return redirect("pending_user_list")
         user.role = role
         if role == User.Role.ADMIN:
@@ -126,8 +132,12 @@ def user_list(request):
 
 
 # 6. 이미 역할이 부여된 회원의 역할 변경 (학생 <-> 관리자)
+# 승격/강등 둘 다 최고 관리자(superuser)만 할 수 있다.
 @staff_member_required
 def update_user_role(request, user_id):
+    if not request.user.is_superuser:
+        messages.error(request, "회원 역할 변경은 최고 관리자만 할 수 있습니다.")
+        return redirect("user_list")
     if request.method == "POST":
         user = get_object_or_404(
             User, id=user_id, role__in=[User.Role.STUDENT, User.Role.ADMIN]
@@ -153,8 +163,12 @@ def update_user_role(request, user_id):
 
 
 # 7. 이미 역할이 부여된 회원 활성/비활성 전환 (탈퇴 대신 로그인만 차단)
+# 최고 관리자(superuser)만 할 수 있다.
 @staff_member_required
 def toggle_user_active(request, user_id):
+    if not request.user.is_superuser:
+        messages.error(request, "계정 활성화/비활성화는 최고 관리자만 할 수 있습니다.")
+        return redirect("user_list")
     if request.method == "POST":
         user = get_object_or_404(
             User, id=user_id, role__in=[User.Role.STUDENT, User.Role.ADMIN]
