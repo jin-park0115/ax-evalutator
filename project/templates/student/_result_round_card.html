@@ -9,12 +9,16 @@
 {% else %}
 
   {% if r.final_score is not None %}
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="text-muted small">최종 점수</div>
-        <div class="display-6">{{ r.final_score }}</div>
+    {% if compact %}
+      <p class="mb-2">최종 점수: <strong>{{ r.final_score }}</strong></p>
+    {% else %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="text-muted small">최종 점수</div>
+          <div class="display-6">{{ r.final_score }}</div>
+        </div>
       </div>
-    </div>
+    {% endif %}
   {% endif %}
 
   <div class="row g-3 mb-3">
