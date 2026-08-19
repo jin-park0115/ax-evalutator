@@ -388,14 +388,13 @@ def _selected_round(request):
     return EvaluationRound.objects.order_by("-id").first()
 
 
-def _tutor_template_items(round_obj, template_type):
-    """튜터 평가 문항 목록. criteria가 list가 아니면 빈 목록으로 취급.
-    template_type으로 튜터 팀 평가/개인 평가 문항을 구분해서 가져온다."""
+def _tutor_template_items(round_obj):
+    """튜터 평가 문항 목록. criteria가 list가 아니면 빈 목록으로 취급."""
     if not round_obj:
         return []
     template = EvaluationTemplate.objects.filter(
         round=round_obj,
-        type=template_type,
+        type=EvaluationTemplate.TemplateType.TUTOR,
     ).first()
     if not template or not isinstance(template.criteria, list):
         return []
@@ -479,7 +478,7 @@ def team_evaluation_form(request, team_id):
     target_team = get_object_or_404(Team, id=team_id)
     round_obj = target_team.round
 
-    items = _tutor_template_items(round_obj, EvaluationTemplate.TemplateType.TUTOR_TEAM)
+    items = _tutor_template_items(round_obj)
 
     existing = TutorEvaluation.objects.filter(
         round=round_obj,
@@ -590,7 +589,7 @@ def individual_evaluation_form(request, student_id):
     )
     target_student = membership.student
 
-    items = _tutor_template_items(round_obj, EvaluationTemplate.TemplateType.TUTOR_INDIVIDUAL)
+    items = _tutor_template_items(round_obj)
 
     existing = TutorEvaluation.objects.filter(
         round=round_obj,
@@ -678,8 +677,9 @@ def template_create(request):
     default_items = {
         "TEAM": DEFAULT_TEAM_CRITERIA,
         "INDIVIDUAL": DEFAULT_INDIVIDUAL_CRITERIA,
-        "TUTOR_TEAM": DEFAULT_TEAM_CRITERIA,
-        "TUTOR_INDIVIDUAL": DEFAULT_INDIVIDUAL_CRITERIA,
+        # 튜터 평가 기본값도 팀 평가와 같은 5문항 사용 (EvaluationTemplate.save()의
+        # TUTOR 기본값 처리와 동일한 기준)
+        "TUTOR": DEFAULT_TEAM_CRITERIA,
     }
 
     rounds = EvaluationRound.objects.order_by("-id")

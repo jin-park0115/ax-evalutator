@@ -282,10 +282,9 @@ class Evaluation(models.Model):
 class EvaluationTemplate(models.Model):
 
     class TemplateType(models.TextChoices):
-        TEAM = "TEAM", "학생 팀 평가"
-        INDIVIDUAL = "INDIVIDUAL", "학생 개인 평가"
-        TUTOR_TEAM = "TUTOR_TEAM", "튜터 팀 평가"
-        TUTOR_INDIVIDUAL = "TUTOR_INDIVIDUAL", "튜터 개인 평가"
+        TEAM = "TEAM", "팀 평가"
+        INDIVIDUAL = "INDIVIDUAL", "개인 평가"
+        TUTOR = "TUTOR", "튜터 평가"
 
     round = models.ForeignKey(
         EvaluationRound,
@@ -310,11 +309,14 @@ class EvaluationTemplate(models.Model):
         # 문항이 비어 있으면 기본 문항 자동 등록
         if not self.criteria:
 
-            if self.type in (self.TemplateType.TEAM, self.TemplateType.TUTOR_TEAM):
+            if self.type == self.TemplateType.TEAM:
                 self.criteria = DEFAULT_TEAM_CRITERIA
 
-            elif self.type in (self.TemplateType.INDIVIDUAL, self.TemplateType.TUTOR_INDIVIDUAL):
+            elif self.type == self.TemplateType.INDIVIDUAL:
                 self.criteria = DEFAULT_INDIVIDUAL_CRITERIA
+
+            elif self.type == self.TemplateType.TUTOR:
+                self.criteria = DEFAULT_TEAM_CRITERIA
 
         super().save(*args, **kwargs)
 
