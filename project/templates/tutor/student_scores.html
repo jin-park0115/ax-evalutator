@@ -53,7 +53,7 @@
                             </td>
                             {% if row.latest %}
                             <td>{{ row.latest.round.name }}</td>
-                            <td>{{ row.latest.final_score }}</td>
+                            <td>{{ row.latest.final_score|floatformat:2 }}</td>
                             <td>
                                 {% if row.latest.rank %}
                                 {{ row.latest.rank }}위
