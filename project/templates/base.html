@@ -159,6 +159,19 @@
       z-index: 2000;
       transition: width 0.3s ease-out;
     }
+
+    /* 관리자/튜터 목록 테이블 공용 스타일 — 항목마다 중앙 정렬 +
+       구분선. nowrap으로 옆 칸을 침범할 수 있어 글자 크기를 살짝
+       줄여서 한 줄에 들어가게 함 */
+    .eval-table th, .eval-table td {
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+      font-size: 0.85rem;
+    }
+    .eval-table > :not(caption) > * > * {
+      border-bottom: 1px solid #dcdcdc;
+    }
   </style>
 </head>
 <body>
