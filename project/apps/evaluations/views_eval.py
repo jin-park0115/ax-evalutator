@@ -55,46 +55,29 @@ def _get_template_items(round_obj, template_type):
     return template.criteria
 
 
-# =========================================================
-# 팀 평가 최종 제출 여부
-# =========================================================
-def _has_team_finalized(user, round_obj):
+def _has_finalized(user, round_obj):
     if not round_obj:
         return False
 
-    return TeamEvaluation.objects.filter(
-        round=round_obj,
-        submitted_by=user,
-        is_final=True,
-    ).exists()
+    return (
+        TeamEvaluation.objects.filter(
+            round=round_obj,
+            submitted_by=user,
+            is_final=True,
+        ).exists()
+        or IndividualEvaluation.objects.filter(
+            round=round_obj,
+            evaluator=user,
+            is_final=True,
+        ).exists()
+    )
 
 
-# =========================================================
-# 개인 평가 최종 제출 여부
-# =========================================================
-def _has_individual_finalized(user, round_obj):
-    if not round_obj:
-        return False
-
-    return IndividualEvaluation.objects.filter(
-        round=round_obj,
-        evaluator=user,
-        is_final=True,
-    ).exists()
-
-
-# =========================================================
-# 팀 평가 목록
-# =========================================================
 @login_required
 def team_evaluation_list(request):
     round_obj = _current_round()
     my_team = _get_my_team(request.user, round_obj)
-
-    team_finalized = _has_team_finalized(
-        request.user,
-        round_obj,
-    )
+    finalized = _has_finalized(request.user, round_obj)
 
     teams = Team.objects.none()
     saved_team_ids = set()
@@ -108,10 +91,7 @@ def team_evaluation_list(request):
         if my_team:
             teams = teams.exclude(id=my_team.id)
 
-        teams = teams.order_by(
-            "eval_opened_at",
-            "id",
-        )
+        teams = teams.order_by("eval_opened_at", "id")
 
         saved_team_ids = set(
             TeamEvaluation.objects.filter(
@@ -131,65 +111,36 @@ def team_evaluation_list(request):
             "my_team": my_team,
             "teams": teams,
             "saved_team_ids": saved_team_ids,
-            "finalized": team_finalized,
-            "team_finalized": team_finalized,
+            "finalized": finalized,
         },
     )
 
 
-# =========================================================
-# 팀 평가 작성
-# =========================================================
 @login_required
 def team_evaluation_form(request, team_id):
     round_obj = _current_round()
-    target_team = get_object_or_404(
-        Team,
-        id=team_id,
-    )
-    my_team = _get_my_team(
-        request.user,
-        round_obj,
-    )
-
-    team_finalized = _has_team_finalized(
-        request.user,
-        round_obj,
-    )
+    target_team = get_object_or_404(Team, id=team_id)
+    my_team = _get_my_team(request.user, round_obj)
+    finalized = _has_finalized(request.user, round_obj)
 
     if not round_obj:
-        messages.error(
-            request,
-            "현재 평가 회차가 없습니다.",
-        )
+        messages.error(request, "현재 평가 회차가 없습니다.")
         return redirect("eval_team_list")
 
     if target_team.round_id != round_obj.id:
-        messages.error(
-            request,
-            "현재 평가 회차의 팀이 아닙니다.",
-        )
+        messages.error(request, "현재 평가 회차의 팀이 아닙니다.")
         return redirect("eval_team_list")
 
     if my_team and my_team.id == target_team.id:
-        messages.error(
-            request,
-            "본인 팀은 평가할 수 없습니다.",
-        )
+        messages.error(request, "본인 팀은 평가할 수 없습니다.")
         return redirect("eval_team_list")
 
     if not target_team.eval_opened_at:
-        messages.error(
-            request,
-            "아직 평가가 열리지 않은 팀입니다.",
-        )
+        messages.error(request, "아직 평가가 열리지 않은 팀입니다.")
         return redirect("eval_team_list")
 
-    if team_finalized:
-        messages.error(
-            request,
-            "팀 평가 최종 제출을 완료하여 더 이상 수정할 수 없습니다.",
-        )
+    if finalized:
+        messages.error(request, "이미 최종 제출을 완료하여 수정할 수 없습니다.")
         return redirect("eval_team_list")
 
     items = _get_template_items(
@@ -203,18 +154,12 @@ def team_evaluation_form(request, team_id):
         target_team=target_team,
     ).first()
 
-    existing_answers = (
-        existing.responses
-        if existing
-        else {}
-    )
+    existing_answers = existing.responses if existing else {}
 
     display_items = [
         {
             **item,
-            "existing_value": existing_answers.get(
-                item.get("key")
-            ),
+            "existing_value": existing_answers.get(item.get("key")),
         }
         for item in items
     ]
@@ -224,18 +169,13 @@ def team_evaluation_form(request, team_id):
 
         for item in items:
             key = item.get("key")
-            value = request.POST.get(
-                f"item_{key}"
-            )
+            value = request.POST.get(f"item_{key}")
 
             if value:
                 try:
                     answers[key] = int(value)
                 except (TypeError, ValueError):
-                    messages.error(
-                        request,
-                        "점수 형식이 올바르지 않습니다.",
-                    )
+                    messages.error(request, "점수 형식이 올바르지 않습니다.")
                     return render(
                         request,
                         "eval/team_evaluation_form.html",
@@ -248,28 +188,13 @@ def team_evaluation_form(request, team_id):
                     )
 
         if not items:
-            messages.error(
-                request,
-                "등록된 팀 평가 문항이 없습니다.",
-            )
+            messages.error(request, "등록된 평가 문항이 없습니다.")
         elif len(answers) != len(items):
-            messages.error(
-                request,
-                "모든 문항에 응답해야 합니다.",
-            )
-        elif any(
-            score < 1 or score > 5
-            for score in answers.values()
-        ):
-            messages.error(
-                request,
-                "평가는 1점에서 5점까지 입력할 수 있습니다.",
-            )
+            messages.error(request, "모든 문항에 응답해야 합니다.")
+        elif any(score < 1 or score > 5 for score in answers.values()):
+            messages.error(request, "평가는 1점부터 5점까지 입력할 수 있습니다.")
         else:
-            avg_score = (
-                sum(answers.values())
-                / len(answers)
-            )
+            avg_score = sum(answers.values()) / len(answers)
 
             try:
                 services.save_team_evaluation(
@@ -281,22 +206,14 @@ def team_evaluation_form(request, team_id):
                     is_final=False,
                 )
             except ValueError as exc:
-                messages.error(
-                    request,
-                    str(exc),
-                )
-                return redirect(
-                    "eval_team_list"
-                )
+                messages.error(request, str(exc))
+                return redirect("eval_team_list")
 
             messages.success(
                 request,
                 f"{target_team.name} 팀 평가가 저장되었습니다.",
             )
-
-            return redirect(
-                "eval_team_list"
-            )
+            return redirect("student_home")
 
     return render(
         request,
@@ -306,20 +223,11 @@ def team_evaluation_form(request, team_id):
             "target_team": target_team,
             "items": display_items,
             "existing_answers": existing_answers,
-            "team_finalized": team_finalized,
-            "finalized": team_finalized,
         },
     )
 
 
-# =========================================================
-# 개인 평가 행 생성
-# =========================================================
-def _build_member_rows(
-    members,
-    items,
-    existing_answers,
-):
+def _build_member_rows(members, items, existing_answers):
     rows = []
 
     for member in members:
@@ -346,32 +254,18 @@ def _build_member_rows(
     return rows
 
 
-# =========================================================
-# 개인 평가 작성
-# =========================================================
 @login_required
 def peer_evaluation_form(request):
     round_obj = _current_round()
-    my_team = _get_my_team(
-        request.user,
-        round_obj,
-    )
-
-    individual_finalized = _has_individual_finalized(
-        request.user,
-        round_obj,
-    )
+    my_team = _get_my_team(request.user, round_obj)
+    finalized = _has_finalized(request.user, round_obj)
 
     members = TeamMember.objects.none()
 
     if my_team and round_obj:
         members = (
-            TeamMember.objects.filter(
-                team=my_team
-            )
-            .exclude(
-                student=request.user
-            )
+            TeamMember.objects.filter(team=my_team)
+            .exclude(student=request.user)
             .select_related("student")
         )
 
@@ -389,38 +283,26 @@ def peer_evaluation_form(request):
         )
 
         for evaluation in evaluations:
-            existing_answers[
-                evaluation.target_id
-            ] = evaluation.responses
+            existing_answers[evaluation.target_id] = evaluation.responses
 
     if request.method == "POST":
-
-        if individual_finalized:
+        if finalized:
             messages.error(
                 request,
-                "개인 평가 최종 제출을 완료하여 더 이상 수정할 수 없습니다.",
+                "이미 최종 제출을 완료하여 수정할 수 없습니다.",
             )
-            return redirect(
-                "eval_peer_form"
-            )
+            return redirect("eval_peer_form")
 
         if not round_obj:
-            messages.error(
-                request,
-                "현재 평가 회차가 없습니다.",
-            )
-            return redirect(
-                "eval_peer_form"
-            )
+            messages.error(request, "현재 평가 회차가 없습니다.")
+            return redirect("eval_peer_form")
 
         if not my_team:
             messages.error(
                 request,
-                "소속 팀이 없어 개인 평가를 진행할 수 없습니다.",
+                "소속된 팀이 없어 개인 평가를 진행할 수 없습니다.",
             )
-            return redirect(
-                "eval_peer_form"
-            )
+            return redirect("eval_peer_form")
 
         member_answers = {}
 
@@ -429,7 +311,6 @@ def peer_evaluation_form(request):
 
             for item in items:
                 key = item.get("key")
-
                 value = request.POST.get(
                     f"item_{member.student.id}_{key}"
                 )
@@ -440,9 +321,8 @@ def peer_evaluation_form(request):
                     except (TypeError, ValueError):
                         messages.error(
                             request,
-                            f"{member.student.username} 학생의 점수 형식이 올바르지 않습니다.",
+                            f"{member.student.username}님의 점수 형식이 올바르지 않습니다.",
                         )
-
                         return render(
                             request,
                             "eval/peer_evaluation_form.html",
@@ -453,8 +333,7 @@ def peer_evaluation_form(request):
                                     items,
                                     existing_answers,
                                 ),
-                                "finalized": individual_finalized,
-                                "individual_finalized": individual_finalized,
+                                "finalized": finalized,
                             },
                         )
 
@@ -463,7 +342,6 @@ def peer_evaluation_form(request):
                     request,
                     "등록된 개인 평가 문항이 없습니다.",
                 )
-
                 return render(
                     request,
                     "eval/peer_evaluation_form.html",
@@ -474,17 +352,15 @@ def peer_evaluation_form(request):
                             items,
                             existing_answers,
                         ),
-                        "finalized": individual_finalized,
-                        "individual_finalized": individual_finalized,
+                        "finalized": finalized,
                     },
                 )
 
-            elif len(answers) != len(items):
+            if len(answers) != len(items):
                 messages.error(
                     request,
-                    f"{member.student.username} 학생에 대한 모든 문항에 응답해야 합니다.",
+                    f"{member.student.username}님에 대한 모든 문항에 응답해야 합니다.",
                 )
-
                 return render(
                     request,
                     "eval/peer_evaluation_form.html",
@@ -495,20 +371,15 @@ def peer_evaluation_form(request):
                             items,
                             existing_answers,
                         ),
-                        "finalized": individual_finalized,
-                        "individual_finalized": individual_finalized,
+                        "finalized": finalized,
                     },
                 )
 
-            if any(
-                score < 1 or score > 5
-                for score in answers.values()
-            ):
+            if any(score < 1 or score > 5 for score in answers.values()):
                 messages.error(
                     request,
-                    "평가는 1점에서 5점까지 입력할 수 있습니다.",
+                    "평가는 1점부터 5점까지 입력할 수 있습니다.",
                 )
-
                 return render(
                     request,
                     "eval/peer_evaluation_form.html",
@@ -519,8 +390,7 @@ def peer_evaluation_form(request):
                             items,
                             existing_answers,
                         ),
-                        "finalized": individual_finalized,
-                        "individual_finalized": individual_finalized,
+                        "finalized": finalized,
                     },
                 )
 
@@ -529,11 +399,7 @@ def peer_evaluation_form(request):
         try:
             with transaction.atomic():
                 for member, answers in member_answers.items():
-
-                    avg_score = (
-                        sum(answers.values())
-                        / len(answers)
-                    )
+                    avg_score = sum(answers.values()) / len(answers)
 
                     services.save_individual_evaluation(
                         round_id=round_obj.id,
@@ -546,11 +412,7 @@ def peer_evaluation_form(request):
                     )
 
         except ValueError as exc:
-            messages.error(
-                request,
-                str(exc),
-            )
-
+            messages.error(request, str(exc))
             return render(
                 request,
                 "eval/peer_evaluation_form.html",
@@ -561,8 +423,7 @@ def peer_evaluation_form(request):
                         items,
                         existing_answers,
                     ),
-                    "finalized": individual_finalized,
-                    "individual_finalized": individual_finalized,
+                    "finalized": finalized,
                 },
             )
 
@@ -570,10 +431,7 @@ def peer_evaluation_form(request):
             request,
             "개인 평가가 저장되었습니다.",
         )
-
-        return redirect(
-            "eval_peer_form"
-        )
+        return redirect("student_home")
 
     return render(
         request,
@@ -585,20 +443,13 @@ def peer_evaluation_form(request):
                 items,
                 existing_answers,
             ),
-            "finalized": individual_finalized,
-            "individual_finalized": individual_finalized,
+            "finalized": finalized,
         },
     )
 
 
-# =========================================================
-# 팀 평가 최종 제출
-#
-# 팀 평가만 is_final=True 처리
-# 개인 평가에는 영향을 주지 않음
-# =========================================================
 @login_required
-def submit_team_final(request):
+def submit_final(request):
     round_obj = _current_round()
 
     if not round_obj:
@@ -606,96 +457,46 @@ def submit_team_final(request):
             request,
             "현재 진행 중인 평가 회차가 없습니다.",
         )
-        return redirect(
-            "eval_team_list"
-        )
+        return redirect("student_home")
 
     if request.method != "POST":
-        return redirect(
-            "eval_team_list"
-        )
+        return redirect("student_home")
 
-    if _has_team_finalized(
-        request.user,
-        round_obj,
-    ):
+    if _has_finalized(request.user, round_obj):
         messages.error(
             request,
-            "이미 팀 평가 최종 제출을 완료했습니다.",
+            "이미 최종 제출을 완료했습니다.",
         )
-        return redirect(
-            "eval_team_list"
+        return redirect("student_home")
+
+    # 팀 평가만 하고 팀원 평가는 하나도 안 쓴 채로(혹은 그 반대로) 제출해도
+    # 그때까지 저장된 것만 is_final=True로 바뀌어 그대로 통과해버리는 문제가
+    # 있었다 — 발표가 시작된 팀 전부 / 우리 팀원 전부에 대한 평가가 실제로
+    # 채워졌는지 먼저 확인한다.
+    progress = services.get_evaluation_progress(request.user, round_obj)
+    if not progress["is_complete"]:
+        messages.error(
+            request,
+            "아직 작성하지 않은 평가가 있습니다. 팀 평가와 팀원 평가를 모두 완료해야 최종 제출할 수 있습니다.",
         )
+        return redirect("student_home")
 
     with transaction.atomic():
         TeamEvaluation.objects.filter(
             round=round_obj,
             submitted_by=request.user,
             is_final=False,
-        ).update(
-            is_final=True
-        )
+        ).update(is_final=True)
 
-    messages.success(
-        request,
-        "팀 평가 최종 제출이 완료되었습니다. 이후 팀 평가를 수정할 수 없습니다.",
-    )
-
-    return redirect(
-        "eval_team_list"
-    )
-
-
-# =========================================================
-# 개인 평가 최종 제출
-#
-# 개인 평가만 is_final=True 처리
-# 팀 평가에는 영향을 주지 않음
-# =========================================================
-@login_required
-def submit_individual_final(request):
-    round_obj = _current_round()
-
-    if not round_obj:
-        messages.error(
-            request,
-            "현재 진행 중인 평가 회차가 없습니다.",
-        )
-        return redirect(
-            "eval_peer_form"
-        )
-
-    if request.method != "POST":
-        return redirect(
-            "eval_peer_form"
-        )
-
-    if _has_individual_finalized(
-        request.user,
-        round_obj,
-    ):
-        messages.error(
-            request,
-            "이미 개인 평가 최종 제출을 완료했습니다.",
-        )
-        return redirect(
-            "eval_peer_form"
-        )
-
-    with transaction.atomic():
         IndividualEvaluation.objects.filter(
             round=round_obj,
             evaluator=request.user,
             is_final=False,
-        ).update(
-            is_final=True
-        )
+        ).update(is_final=True)
 
     messages.success(
         request,
-        "개인 평가 최종 제출이 완료되었습니다. 이후 개인 평가를 수정할 수 없습니다.",
+        "최종 제출이 완료되었습니다. 작성한 평가만 최종 제출 처리되며 이후 수정할 수 없습니다.",
     )
 
-    return redirect(
-        "eval_peer_form"
-    )
+    return redirect("student_home")

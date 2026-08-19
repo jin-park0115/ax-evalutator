@@ -1,5 +1,14 @@
 # AX 평가 시스템 ERD
 
+> **[Deprecated]** 이 문서는 초기 설계 초안이며 실제 구현과 어긋나는 부분이 있다(예: `USER`에 `team_id`를 직접 두는 구조로
+> 설명하지만, 실제로는 `TEAM_MEMBER` 연결 테이블을 통한 N:M 구조다. 점수 계산 예시도 100점 환산 예시라 1~5점 기준
+> 최종 계산식과 다르다). **데이터 구조/계산식의 기준 문서는 아래를 사용한다.**
+>
+> - 데이터 구조: [templates/02_data/03_erd_spec_template.md](templates/02_data/03_erd_spec_template.md), [04_table_definition_template.md](templates/02_data/04_table_definition_template.md), [05_data_dictionary_template.md](templates/02_data/05_data_dictionary_template.md)
+> - 점수 계산식: [templates/01_requirements/business_rule_BR06.md](templates/01_requirements/business_rule_BR06.md) ~ [BR08](templates/01_requirements/business_rule_BR08.md)
+>
+> 이 문서는 초기 요구사항 배경(평가 구조, 진행 방식 서술)을 참고할 때만 남겨둔다.
+
 ## 주요 엔티티
 
 - `USER` : 사용자

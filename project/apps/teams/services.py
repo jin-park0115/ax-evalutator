@@ -116,6 +116,106 @@ def get_students_by_percentiles(target_round_id=None, thresholds=[30.0, 60.0], e
     return groups
 
 
+def preview_seed_based_teams(
+    current_assignments,
+    num_teams,
+    target_round_id=None,
+    thresholds=[30.0, 60.0],
+    fixed_student_ids=[],
+    excluded_student_ids=[],
+    window=None,
+):
+    """자동 편성 '미리보기' — DB에 아무것도 쓰지 않는다.
+
+    '편성 확정' 버튼을 눌러야만 DB에 저장되도록 하기 위해, 자동 편성은
+    화면(브라우저)에 들고 있는 현재 편성 상태(current_assignments,
+    {팀 이름: [student_id, ...]})를 입력으로 받아 다음 편성 결과만
+    계산해서 돌려준다. 실제 Team/TeamMember 레코드는 건드리지 않는다.
+    """
+    groups = get_students_by_percentiles(
+        target_round_id=target_round_id,
+        thresholds=thresholds,
+        excluded_student_ids=excluded_student_ids,
+        window=window,
+    )
+
+    excluded_set = set(excluded_student_ids)
+    fixed_set = set(fixed_student_ids) - excluded_set
+
+    team_names = [f"{i}팀" for i in range(1, num_teams + 1)]
+    team_assignments = {name: [] for name in team_names}
+
+    # 고정(fixCheck)된 학생만 기존 자리 그대로 유지. 팀 수가 줄어서
+    # 그 팀 자체가 사라졌으면 고정을 풀고 다시 배정 대상에 포함시킨다.
+    for name, student_ids in (current_assignments or {}).items():
+        if name not in team_assignments:
+            continue
+        team_assignments[name] = [
+            sid for sid in student_ids
+            if sid in fixed_set and sid not in excluded_set
+        ]
+
+    placed_fixed_ids = {sid for ids in team_assignments.values() for sid in ids}
+    effective_fixed_set = fixed_set & placed_fixed_ids
+
+    for group in groups:
+        unassigned_group_students = [
+            s["student_id"] for s in group["students"]
+            if s["student_id"] not in effective_fixed_set and s["student_id"] not in excluded_set
+        ]
+        random.shuffle(unassigned_group_students)
+
+        for student_id in unassigned_group_students:
+            min_count = min(len(members) for members in team_assignments.values())
+            candidate_names = [
+                name for name, members in team_assignments.items() if len(members) == min_count
+            ]
+            selected_name = random.choice(candidate_names)
+            team_assignments[selected_name].append(student_id)
+
+    return team_assignments
+
+
+def preview_random_teams(
+    current_assignments,
+    num_teams,
+    active_student_ids,
+    fixed_student_ids=[],
+    excluded_student_ids=[],
+):
+    """이전 시드 데이터가 없는 최초 회차용 무작위 자동 편성 '미리보기'.
+    preview_seed_based_teams와 마찬가지로 DB에 아무것도 쓰지 않는다."""
+    excluded_set = set(excluded_student_ids)
+    fixed_set = set(fixed_student_ids) - excluded_set
+
+    team_names = [f"{i}팀" for i in range(1, num_teams + 1)]
+    team_assignments = {name: [] for name in team_names}
+
+    for name, student_ids in (current_assignments or {}).items():
+        if name not in team_assignments:
+            continue
+        team_assignments[name] = [
+            sid for sid in student_ids
+            if sid in fixed_set and sid not in excluded_set
+        ]
+
+    placed_fixed_ids = {sid for ids in team_assignments.values() for sid in ids}
+    assignable = [
+        sid for sid in active_student_ids
+        if sid not in excluded_set and sid not in placed_fixed_ids
+    ]
+    random.shuffle(assignable)
+
+    for student_id in assignable:
+        min_count = min(len(members) for members in team_assignments.values())
+        candidate_names = [
+            name for name, members in team_assignments.items() if len(members) == min_count
+        ]
+        team_assignments[random.choice(candidate_names)].append(student_id)
+
+    return team_assignments
+
+
 def assign_seed_based_teams(target_round, num_teams, thresholds=[30.0, 60.0], fixed_student_ids=[], excluded_student_ids=[], window=None):
     """시드 점수 기반 팀 자동 편성.
     window는 get_student_seed_scores와 동일 (None=전체 누적, 1/3/5=직전 N회차 평균)."""
