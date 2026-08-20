@@ -360,6 +360,94 @@ def calculate_average_excluding_missing(
 
 
 # ==============================================================================
+# 평가 위반자(대상 누락 / 자기 팀·자기 자신 평가) 탐지
+#
+# 팀평가는 "다른 팀 전체", 개인평가는 "같은 팀원 전체"를 평가해야 유효하다.
+# 하나라도 안 했거나 자기 팀/자기 자신을 평가하려 한 사람은 "위반자"로
+# 보고, 그 사람이 제출한 평가 전부를 집계에서 결측값(제외) 처리한다.
+# ==============================================================================
+
+def get_team_eval_violations(round_id: int) -> dict[int, str]:
+    """이 회차 팀평가 위반자를 {student_id: 사유} 형태로 반환한다.
+    위반 = 다른 팀 전체를 평가하지 않았거나, 자기 팀을 평가하려 한 경우."""
+    from apps.teams.models import Team, TeamMember
+
+    all_team_ids = set(
+        Team.objects.filter(round_id=round_id).values_list("id", flat=True)
+    )
+    home_team_by_student = dict(
+        TeamMember.objects.filter(team__round_id=round_id).values_list(
+            "student_id", "team_id"
+        )
+    )
+
+    targets_by_submitter: dict[int, set[int]] = {}
+    for submitted_by_id, target_team_id in TeamEvaluation.objects.filter(
+        round_id=round_id, is_final=True
+    ).values_list("submitted_by_id", "target_team_id"):
+        targets_by_submitter.setdefault(submitted_by_id, set()).add(target_team_id)
+
+    violations = {}
+    for submitter_id, targets in targets_by_submitter.items():
+        home_team_id = home_team_by_student.get(submitter_id)
+        required = all_team_ids - ({home_team_id} if home_team_id else set())
+        if home_team_id in targets:
+            violations[submitter_id] = "자기 팀을 평가함"
+        elif not required.issubset(targets):
+            missing = len(required - targets)
+            violations[submitter_id] = f"다른 팀 {missing}곳 평가 안 함 ({len(targets)}/{len(required)}팀 평가)"
+
+    return violations
+
+
+def get_team_eval_violator_ids(round_id: int) -> set[int]:
+    """get_team_eval_violations의 학생 id만 집합으로 반환."""
+    return set(get_team_eval_violations(round_id).keys())
+
+
+def get_individual_eval_violations(round_id: int) -> dict[int, str]:
+    """이 회차 개인평가 위반자를 {student_id: 사유} 형태로 반환한다.
+    위반 = 같은 팀원 전체를 평가하지 않았거나, 자기 자신을 평가하려 한 경우."""
+    from apps.teams.models import TeamMember
+
+    members_by_team: dict[int, set[int]] = {}
+    for student_id, team_id in TeamMember.objects.filter(
+        team__round_id=round_id
+    ).values_list("student_id", "team_id"):
+        members_by_team.setdefault(team_id, set()).add(student_id)
+
+    home_team_by_student = {
+        student_id: team_id
+        for team_id, student_ids in members_by_team.items()
+        for student_id in student_ids
+    }
+
+    targets_by_evaluator: dict[int, set[int]] = {}
+    for evaluator_id, target_id in IndividualEvaluation.objects.filter(
+        round_id=round_id, is_final=True
+    ).values_list("evaluator_id", "target_id"):
+        targets_by_evaluator.setdefault(evaluator_id, set()).add(target_id)
+
+    violations = {}
+    for evaluator_id, targets in targets_by_evaluator.items():
+        home_team_id = home_team_by_student.get(evaluator_id)
+        teammates = members_by_team.get(home_team_id, set())
+        required = teammates - {evaluator_id}
+        if evaluator_id in targets:
+            violations[evaluator_id] = "자기 자신을 평가함"
+        elif not required.issubset(targets):
+            missing = len(required - targets)
+            violations[evaluator_id] = f"팀원 {missing}명 평가 안 함 ({len(targets)}/{len(required)}명 평가)"
+
+    return violations
+
+
+def get_individual_eval_violator_ids(round_id: int) -> set[int]:
+    """get_individual_eval_violations의 학생 id만 집합으로 반환."""
+    return set(get_individual_eval_violations(round_id).keys())
+
+
+# ==============================================================================
 # 팀 평가 점수 조회
 # ==============================================================================
 
@@ -371,6 +459,8 @@ def get_team_score_from_db(
     특정 팀이 받은 학생 팀 평가 점수를 계산한다.
 
     최종 제출(is_final=True)된 평가만 사용한다.
+    다른 팀 전체를 평가하지 않은 위반자가 제출한 평가는 결측값으로 보고
+    제외한다.
 
     모든 평가 점수를 그대로 평균한다.
     최저점/최고점 제거 없음.
@@ -378,11 +468,15 @@ def get_team_score_from_db(
     점수는 1~5점 척도를 그대로 유지한다.
     """
 
+    violator_ids = get_team_eval_violator_ids(round_id)
+
     scores = list(
         TeamEvaluation.objects.filter(
             round_id=round_id,
             target_team_id=team_id,
             is_final=True,
+        ).exclude(
+            submitted_by_id__in=violator_ids,
         ).values_list(
             "score",
             flat=True,
@@ -404,6 +498,8 @@ def get_individual_score_from_db(
     특정 학생이 받은 학생 개인 평가 점수를 계산한다.
 
     최종 제출(is_final=True)된 평가만 사용한다.
+    같은 팀원 전체를 평가하지 않은 위반자가 제출한 평가는 결측값으로 보고
+    제외한다.
 
     모든 평가 점수를 그대로 평균한다.
     최저점/최고점 제거 없음.
@@ -411,11 +507,15 @@ def get_individual_score_from_db(
     점수는 1~5점 척도를 그대로 유지한다.
     """
 
+    violator_ids = get_individual_eval_violator_ids(round_id)
+
     scores = list(
         IndividualEvaluation.objects.filter(
             round_id=round_id,
             target_id=student_id,
             is_final=True,
+        ).exclude(
+            evaluator_id__in=violator_ids,
         ).values_list(
             "score",
             flat=True,

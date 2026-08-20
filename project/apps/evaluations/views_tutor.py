@@ -798,6 +798,8 @@ def evaluation_status(request):
 
     status = None
     non_submitters = []
+    team_eval_violators = []
+    individual_eval_violators = []
 
     if round_obj:
         members = (
@@ -827,6 +829,27 @@ def evaluation_status(request):
         )
 
         non_submitters = [m.student for m in members if m.student_id not in submitted_ids]
+
+        from apps.scoring.services import (
+            get_team_eval_violations,
+            get_individual_eval_violations,
+        )
+
+        member_by_student_id = {m.student_id: m for m in members}
+
+        team_eval_violations = get_team_eval_violations(round_obj.id)
+        team_eval_violators = [
+            {"student": member_by_student_id[uid].student, "reason": reason}
+            for uid, reason in team_eval_violations.items()
+            if uid in member_by_student_id
+        ]
+
+        individual_eval_violations = get_individual_eval_violations(round_obj.id)
+        individual_eval_violators = [
+            {"student": member_by_student_id[uid].student, "reason": reason}
+            for uid, reason in individual_eval_violations.items()
+            if uid in member_by_student_id
+        ]
 
         teams = Team.objects.filter(round=round_obj)
         total_teams = teams.count()
@@ -860,6 +883,8 @@ def evaluation_status(request):
             "rounds": EvaluationRound.objects.order_by("-id"),
             "status": status,
             "non_submitters": non_submitters,
+            "team_eval_violators": team_eval_violators,
+            "individual_eval_violators": individual_eval_violators,
         },
     )
 

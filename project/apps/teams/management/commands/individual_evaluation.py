@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from apps.evaluations.models import EvaluationRound, IndividualEvaluation
 from apps.evaluations.services import save_individual_evaluation
+from apps.scoring.services import get_individual_eval_violations
 
 User = get_user_model()
 
@@ -144,3 +145,19 @@ class Command(BaseCommand):
                 f"\n[개인 평가 일괄 등록 완료] 성공: {success_count}건 / BR-05(중복제출) Skip: {duplicate_skip_count}건 / BR-02, BR-04(규칙위반) Skip: {rule_violation_skip_count}건"
             )
         )
+
+        # 같은 팀원 전체를 평가하지 않았거나 자기 자신을 평가하려 한 학생은
+        # 위반자로 보고, 이 학생들이 제출한 평가는 점수 집계 시 전부 결측값
+        # 처리된다(apps/scoring/services.py 참고). 여기서는 등록 직후
+        # 누가 위반자인지 바로 확인할 수 있도록 명단을 같이 출력한다.
+        violations = get_individual_eval_violations(round_obj.id)
+        if violations:
+            violator_users = {u.id: u for u in User.objects.filter(id__in=violations.keys())}
+            self.stdout.write(
+                self.style.WARNING(f"\n[개인 평가 위반자 {len(violations)}명 - 제출한 평가 전부 집계에서 제외됨]")
+            )
+            for user_id, reason in violations.items():
+                name = violator_users[user_id].username if user_id in violator_users else user_id
+                self.stdout.write(f"  - {name}: {reason}")
+        else:
+            self.stdout.write(self.style.SUCCESS("\n[개인 평가 위반자 없음]"))

@@ -131,6 +131,78 @@
     </div>
 </div>
 
+<div class="card mt-4">
+    <div class="card-header">
+        <strong>⚠️ 팀 평가 위반자</strong>
+        <span class="text-muted">({{ team_eval_violators|length }}명)</span>
+        <span class="text-muted small">— 다른 팀 전체를 평가하지 않았거나 자기 팀을 평가하려 한 학생. 제출한 팀평가 전부 점수 집계에서 제외됩니다.</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 eval-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>이름</th>
+                        <th>이메일</th>
+                        <th>사유</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in team_eval_violators %}
+                    <tr>
+                        <td>{{ v.student.username }}</td>
+                        <td>{{ v.student.email }}</td>
+                        <td class="text-danger">{{ v.reason }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            위반자가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <strong>⚠️ 개인 평가 위반자</strong>
+        <span class="text-muted">({{ individual_eval_violators|length }}명)</span>
+        <span class="text-muted small">— 같은 팀원 전체를 평가하지 않았거나 자기 자신을 평가하려 한 학생. 제출한 개인평가 전부 점수 집계에서 제외됩니다.</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 eval-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>이름</th>
+                        <th>이메일</th>
+                        <th>사유</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in individual_eval_violators %}
+                    <tr>
+                        <td>{{ v.student.username }}</td>
+                        <td>{{ v.student.email }}</td>
+                        <td class="text-danger">{{ v.reason }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">
+                            위반자가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 {% endif %}
 
 <script>
