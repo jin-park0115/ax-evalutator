@@ -74,7 +74,7 @@ def get_student_seed_scores(target_round_id=None, excluded_student_ids=[], windo
             "avg_score": round(avg_score, 2),
         })
 
-    student_scores.sort(key=lambda s: (-s["avg_score"], s["student_id"]))
+    student_scores.sort(key=lambda s: (-s["avg_score"], s["student_name"], s["student_id"]))
 
     return student_scores
 
