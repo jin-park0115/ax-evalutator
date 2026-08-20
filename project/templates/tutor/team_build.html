@@ -246,7 +246,7 @@
     const initialState = initialStateEl ? JSON.parse(initialStateEl.textContent) : { teams: {}, unassigned: [] };
     const roundEditable = {{ round_editable|yesno:'true,false' }};
 
-    const state = { teams: {}, unassigned: [] };
+    const state = { teams: {}, unassigned: [], conflictTeams: new Set() };
 
     function loadInitialState() {
         state.teams = {};
@@ -340,6 +340,9 @@
             const badge = team.evalOpened
                 ? '<span class="badge text-bg-success">발표 시작됨</span>'
                 : '<span class="badge text-bg-secondary">대기</span>';
+            const conflictBadge = state.conflictTeams.has(name)
+                ? '<span class="badge text-bg-warning ms-1" title="직전 회차와 동일한 팀원 조합이 남아있습니다.">⚠️ 직전 회차 중복</span>'
+                : '';
 
             const otherTeamOptions = names
                 .filter(function (n) { return n !== name; })
@@ -373,7 +376,7 @@
                     <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <strong>${name}</strong>
-                            ${badge}
+                            <div>${badge}${conflictBadge}</div>
                         </div>
                         <div class="card-body">
                             <h6 class="mb-3 team-member-count">팀원 (${team.members.length}명)</h6>
@@ -597,6 +600,7 @@
                     };
                 });
                 state.teams = newTeams;
+                state.conflictTeams = new Set(data.conflict_teams || []);
                 // 자동 편성 대상에서 제외 체크한 학생만 미배정으로 남는다
                 const excludedSet = new Set(excludedStudentIds);
                 state.unassigned = state.unassigned.filter(function (s) { return excludedSet.has(s.id); });
