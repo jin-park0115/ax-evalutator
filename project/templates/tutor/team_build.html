@@ -353,17 +353,17 @@
                 ? '<div class="text-muted small empty-member-msg">배정된 팀원이 없습니다.</div>'
                 : team.members.map(function (m) {
                     const actions = roundEditable ? `
-                        <div class="d-flex gap-1 align-items-center">
-                            <select class="form-select form-select-sm moveTeamSelect px-1" style="width: 75px; font-size: 0.8rem;">
+                        <div class="d-flex flex-wrap gap-1 align-items-center justify-content-end mt-1">
+                            <select class="form-select form-select-sm moveTeamSelect" style="width: 90px; font-size: 0.75rem;">
                                 ${otherTeamOptions}
                             </select>
-                            <button type="button" class="btn btn-sm btn-outline-secondary moveBtn px-2" style="font-size: 0.8rem;" data-student-id="${m.id}">이동</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger unassignBtn px-2" style="font-size: 0.8rem;" data-student-id="${m.id}">해제</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary moveBtn px-2" style="font-size: 0.75rem;" data-student-id="${m.id}">이동</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger unassignBtn px-2" style="font-size: 0.75rem;" data-student-id="${m.id}">해제</button>
                         </div>` : '';
 
                     return `
-                        <div class="d-flex align-items-center justify-content-between mb-2 pb-1 border-bottom gap-1 member-item" data-student-id="${m.id}">
-                            <div class="form-check mb-0 text-nowrap flex-shrink-0" style="min-width: 65px;">
+                        <div class="mb-2 pb-2 border-bottom member-item" data-student-id="${m.id}">
+                            <div class="form-check mb-0">
                                 <input class="form-check-input fixCheck me-1" type="checkbox" value="${m.id}" id="fix_${m.id}" ${roundEditable ? '' : 'disabled'}>
                                 <label class="form-check-label small" for="fix_${m.id}">${escapeHtml(m.username)}</label>
                             </div>
