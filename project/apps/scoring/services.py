@@ -6,7 +6,7 @@ from apps.evaluations.models import (
     TutorEvaluation,
     ScoreResult,
 )
-from apps.teams.models import Team, TeamMember, TeamUserScoreSeed
+from apps.teams.models import Team, TeamMember
 
 
 # ==============================================================================
@@ -32,41 +32,6 @@ def calculate_seed_scores(
     return {
         student_id: totals[student_id] / counts[student_id]
         for student_id in totals
-    }
-
-
-# ==============================================================================
-# 종료된 회차의 최종 점수 조회
-# ==============================================================================
-
-def get_seed_scores_from_db() -> dict[int, float]:
-    """
-    종료된 회차의 ScoreResult.final_score를 가져와
-    학생별 평균 점수를 계산한다.
-    """
-
-    results = (
-        ScoreResult.objects
-        .filter(round__status="finished")
-        .values("user_id", "final_score")
-        .order_by("round_id", "user_id")
-    )
-
-    student_scores: dict[int, list[float]] = {}
-
-    for result in results:
-        student_id = result["user_id"]
-        final_score = result["final_score"]
-
-        if final_score is None:
-            continue
-
-        student_scores.setdefault(student_id, []).append(final_score)
-
-    return {
-        student_id: sum(scores) / len(scores)
-        for student_id, scores in student_scores.items()
-        if scores
     }
 
 
@@ -747,118 +712,3 @@ def calculate_round(round) -> list[dict]:
 
     return saved_results
 
-
-# ==============================================================================
-# 누적 시드 저장
-# ==============================================================================
-
-@transaction.atomic
-def save_cumulative_seeds(
-    round_id: int,
-) -> dict[int, float]:
-    """
-    종료된 평가 회차의 최종 점수를 기준으로
-    학생별 누적 시드를 계산하고 저장한다.
-
-    누적 시드
-    = 종료된 모든 회차의 최종 점수 평균
-    """
-
-    results = (
-        ScoreResult.objects
-        .filter(
-            round__status="finished",
-            round_id__lte=round_id,
-        )
-        .values(
-            "user_id",
-            "round_id",
-            "team_id",
-            "final_score",
-        )
-        .order_by(
-            "user_id",
-            "round_id",
-        )
-    )
-
-    student_scores: dict[int, list[float]] = {}
-    latest_team: dict[int, int] = {}
-
-    for result in results:
-        user_id = result["user_id"]
-        final_score = result["final_score"]
-
-        if final_score is None:
-            continue
-
-        student_scores.setdefault(
-            user_id,
-            [],
-        ).append(final_score)
-
-        latest_team[user_id] = result["team_id"]
-
-    saved_seeds: dict[int, float] = {}
-
-    for user_id, scores in student_scores.items():
-        cumulative_seed = sum(scores) / len(scores)
-
-        TeamUserScoreSeed.objects.update_or_create(
-            user_id=user_id,
-            round_id=round_id,
-            defaults={
-                "team_id": latest_team[user_id],
-                "cumulative_seed": cumulative_seed,
-            },
-        )
-
-        saved_seeds[user_id] = cumulative_seed
-
-    return saved_seeds
-
-
-# ==============================================================================
-# 누적 시드 조회
-# ==============================================================================
-
-def get_cumulative_seed(
-    user_id: int,
-    round_id: int,
-) -> float | None:
-    """
-    특정 학생의 특정 평가 회차 누적 시드를 조회한다.
-
-    해당 회차에 직접 저장된 시드가 없으면
-    가장 최근 누적 시드를 조회한다.
-    """
-
-    seed = (
-        TeamUserScoreSeed.objects
-        .filter(
-            user_id=user_id,
-            round_id=round_id,
-        )
-        .values_list(
-            "cumulative_seed",
-            flat=True,
-        )
-        .first()
-    )
-
-    if seed is None:
-        seed = (
-            TeamUserScoreSeed.objects
-            .filter(
-                user_id=user_id,
-                round_id__lte=round_id,
-            )
-            .order_by("-round_id")
-            .values_list(
-                "cumulative_seed",
-                flat=True,
-            )
-            .first()
-        )
-
-    return seed

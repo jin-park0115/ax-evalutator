@@ -302,7 +302,7 @@ def auto_assign_teams(request):
         num_teams = 1
 
     if has_score_history:
-        team_assignments = preview_seed_based_teams(
+        team_assignments, conflict_team_names = preview_seed_based_teams(
             current_assignments=current_assignments,
             num_teams=num_teams,
             target_round_id=target_round.id,
@@ -317,7 +317,7 @@ def auto_assign_teams(request):
         # active_student_ids는 exclude된 학생 제외하고 이미 필터됐지만,
         # preview_random_teams에는 excluded_student_ids도 같이 넘겨서
         # 고정(fixed) 판정 등 내부 로직 일관성을 유지한다.
-        team_assignments = preview_random_teams(
+        team_assignments, conflict_team_names = preview_random_teams(
             current_assignments=current_assignments,
             num_teams=num_teams,
             active_student_ids=active_student_ids,
@@ -325,6 +325,9 @@ def auto_assign_teams(request):
             excluded_student_ids=excluded_student_ids,
         )
         msg = f"무작위(제외 {len(excluded_student_ids)}명 반영, 총 {num_teams}개 팀) 임시 편성이 완료되었습니다. '편성 확정'을 눌러야 저장됩니다."
+
+    if conflict_team_names:
+        msg += f" ⚠️ {len(conflict_team_names)}개 팀은 직전 회차와 동일한 팀원 조합을 완전히 피하지 못했습니다."
 
     users = User.objects.filter(
         id__in=[sid for ids in team_assignments.values() for sid in ids]
@@ -344,6 +347,7 @@ def auto_assign_teams(request):
             "excluded_count": len(excluded_student_ids),
             "is_seed_based": has_score_history,
             "teams": teams_payload,
+            "conflict_teams": sorted(conflict_team_names),
         },
         status=200,
     )
