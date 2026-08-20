@@ -1,7 +1,14 @@
 Django==5.2.4
-psycopg[binary]==3.2.9
+psycopg[binary]==3.2.10
 python-decouple==3.8
 requests==2.32.4
 pytest==8.4.1
 pytest-django==4.11.1
 
+django-allauth
+requests
+requests-oauthlib
+PyJWT
+gunicorn
+whitenoise
+psycopg2-binary

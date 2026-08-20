@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}회원 승인{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">회원 승인</h1>
+        <p class="text-muted mb-0">
+            가입 신청을 승인한 뒤, 승인된 회원에게 역할(학생/관리자)을 부여해야 로그인할 수 있습니다.
+        </p>
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 1단계: 승인 대기 -->
+    <!-- ===================================== -->
+
+    <div class="card mb-4">
+
+        <div class="card-header">
+            <strong>1단계 · 승인 대기</strong>
+            <span class="text-muted">({{ pending_users|length }}명)</span>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle eval-table">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>이름</th>
+                            <th>이메일</th>
+                            <th>가입일</th>
+                            <th style="width: 220px;" class="text-center">처리</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for pending_user in pending_users %}
+                        <tr>
+                            <td>{{ pending_user.display_name }}</td>
+                            <td>{{ pending_user.email }}</td>
+                            <td>{{ pending_user.date_joined|date:"Y-m-d" }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
+
+                                    <form method="post"
+                                          action="{% url 'approve_user' pending_user.id %}"
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            승인
+                                        </button>
+                                    </form>
+
+                                    <form method="post"
+                                          action="{% url 'reject_user' pending_user.id %}"
+                                          class="d-inline"
+                                          onsubmit="return confirm('{{ pending_user.username }}님의 가입 신청을 거절하시겠습니까?\n계정이 삭제됩니다.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            거절
+                                        </button>
+                                    </form>
+
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">
+                                승인 대기 중인 회원이 없습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================== -->
+    <!-- 2단계: 역할 부여 대기 -->
+    <!-- ===================================== -->
+
+    <div class="card">
+
+        <div class="card-header">
+            <strong>2단계 · 역할 부여 대기</strong>
+            <span class="text-muted">({{ approved_users|length }}명)</span>
+            <span class="badge text-bg-secondary ms-1">승인완료 · 역할미부여</span>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle eval-table">
+
+                    <thead class="table-light">
+                        <tr>
+                            <th>이름</th>
+                            <th>이메일</th>
+                            <th>가입일</th>
+                            <th style="width: 320px;" class="text-center">역할 부여</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for approved_user in approved_users %}
+                        <tr>
+                            <td>{{ approved_user.display_name }}</td>
+                            <td>{{ approved_user.email }}</td>
+                            <td>{{ approved_user.date_joined|date:"Y-m-d" }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-2">
+
+                                    <form method="post"
+                                          action="{% url 'assign_role' approved_user.id %}"
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="role" value="STUDENT">
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            학생으로 부여
+                                        </button>
+                                    </form>
+
+                                    {% if request.user.is_superuser %}
+                                    <form method="post"
+                                          action="{% url 'assign_role' approved_user.id %}"
+                                          class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="role" value="ADMIN">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            관리자로 부여
+                                        </button>
+                                    </form>
+                                    {% endif %}
+
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">
+                                역할 부여 대기 중인 회원이 없습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

@@ -6,19 +6,278 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AX Evaluator</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
   <link href="{% static 'css/style.css' %}" rel="stylesheet">
+  <style>
+    /* KANT + Threads 스타일 — 밝은 배경 + 상단 네비만 어두운 히어로.
+       Bootstrap 기본 클래스를 직접 다듬어서 기존 화면 전체에
+       템플릿 수정 없이 일괄 적용 */
+
+    html {
+      font-size: 18px; /* Bootstrap 기본 16px → rem 기반 컴포넌트 전체가 같이 커짐 */
+    }
+    body {
+      background-color: #fafafa;
+      color: #1a1a1a;
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* 폰트가 커지면서 버튼 안에서 글자가 줄바꿈되던 문제 방지.
+       공간이 부족하면 버튼 자체가 통째로 다음 줄로 넘어감 */
+    .btn { white-space: nowrap; }
+
+    /* 네비게이션 — 어두운 히어로 밴드 + 도트 패턴 */
+    .navbar {
+      background-color: #101010 !important;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+      background-size: 18px 18px;
+      padding-top: 1rem !important;
+      padding-bottom: 1rem !important;
+    }
+    .navbar-brand {
+      font-weight: 800 !important;
+      letter-spacing: -0.5px;
+      color: #ffffff !important;
+    }
+    .navbar a.text-decoration-none,
+    .navbar .dropdown-toggle {
+      color: #b3b3b3 !important;
+      font-weight: 600;
+    }
+    .navbar a.text-decoration-none:hover,
+    .navbar .dropdown-toggle:hover {
+      color: #ffffff !important;
+    }
+    .navbar .text-muted { color: #8a8a8a !important; }
+    .navbar .btn-outline-primary {
+      color: #ffffff !important;
+      border-color: #444444 !important;
+    }
+    .navbar .btn-outline-primary:hover {
+      background-color: #4E75F8 !important;
+      border-color: #4E75F8 !important;
+    }
+
+    /* 카드 — 밝은 배경, 얇은 테두리, 부드러운 그림자 (Threads 느낌) */
+    .card {
+      border: 1px solid #eaeaea;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    .card-header {
+      background-color: #ffffff;
+      border-bottom: 1px solid #eaeaea;
+      font-weight: 700;
+    }
+
+    /* 버튼 — 파란 포인트 컬러 */
+    .btn-primary {
+      background-color: #4E75F8 !important;
+      border-color: #4E75F8 !important;
+    }
+    .btn-primary:hover {
+      background-color: #3b62e3 !important;
+      border-color: #3b62e3 !important;
+    }
+    /* 흰 배경 위 텍스트는 #4E75F8(대비 4.0:1)보다 진한 톤을 써서
+       가독성 확보 (버튼 배경으로 쓰는 #4E75F8 자체는 유지) */
+    .btn-outline-primary {
+      color: #3b62e3;
+      border-color: #3b62e3;
+      font-weight: 600;
+    }
+    .btn-outline-primary:hover {
+      background-color: #3b62e3;
+      border-color: #3b62e3;
+      color: #ffffff;
+    }
+    .btn-link { color: #3b62e3 !important; }
+    a { color: #3b62e3; }
+
+    /* 로그인 등 페이지 상단 안내 메시지 — 내용 폭만큼만 박스가 생기고
+       가운데 정렬, Pretendard/굵게/한 단계 큰 글씨, 줄바꿈 없이 한 줄 */
+    .page-message {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      white-space: nowrap;
+    }
+
+    /* 폼 */
+    .form-control:focus, .form-select:focus {
+      border-color: #4E75F8;
+      box-shadow: 0 0 0 0.2rem rgba(78, 117, 248, 0.15);
+    }
+    .form-check-input:checked {
+      background-color: #4E75F8;
+      border-color: #4E75F8;
+    }
+
+    /* 구글 표준 로그인 버튼 (Google 브랜드 가이드라인 스타일) */
+    .google-signin-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      height: 44px;
+      background-color: #ffffff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      color: #3c4043;
+      font-weight: 500;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: background-color 0.15s, box-shadow 0.15s;
+    }
+    .google-signin-btn:hover {
+      background-color: #f8f9fa;
+      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
+      color: #3c4043;
+    }
+    .google-signin-btn svg { flex-shrink: 0; }
+
+    /* 제목/소제목은 Noto Sans KR, 본문/세부 텍스트는 Pretendard */
+    h1, h2, h3, h4, h5, h6, .navbar-brand {
+      font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    /* 페이지 전환 진행바 — 링크/폼 제출로 다음 페이지를 요청하는 동안
+       화면 최상단에 얇게 차오르며 "지금 로딩 중"임을 알려줌 */
+    #page-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 0;
+      background-color: #4E75F8;
+      z-index: 2000;
+      transition: width 0.3s ease-out;
+    }
+
+    /* 관리자/튜터 목록 테이블 공용 스타일 — 구분선 + 줄바꿈 방지.
+       정렬은 기본 왼쪽(텍스트가 읽기 편함)이고, 숫자/뱃지/버튼처럼
+       짧은 항목만 각 셀에 text-center를 따로 붙여서 가운데로 맞춘다.
+       nowrap으로 옆 칸을 침범할 수 있어 글자 크기를 살짝 줄임 */
+    .eval-table th, .eval-table td {
+      vertical-align: middle;
+      white-space: nowrap;
+      font-size: 0.85rem;
+    }
+    .eval-table > :not(caption) > * > * {
+      border-bottom: 1px solid #dcdcdc;
+    }
+  </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg border-bottom bg-white">
-    <div class="container">
-      <a class="navbar-brand fw-semibold" href="/">AX Evaluator</a>
-      <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
+  <div id="page-progress-bar"></div>
+  <nav class="navbar navbar-expand-lg border-bottom">
+    <div class="container d-flex justify-content-between align-items-center">
+      <a class="navbar-brand fw-semibold mb-0" href="/">AX Evaluator</a>
+      <div class="d-flex align-items-center gap-3">
+        {% if user.is_authenticated %}
+          {% if user.is_staff %}
+            <a class="text-decoration-none" href="{% url 'tutor_rounds' %}">회차 관리</a>
+            <a class="text-decoration-none" href="{% url 'tutor_team_build' %}">팀 편성</a>
+
+            <div class="dropdown">
+              <a class="text-decoration-none dropdown-toggle" href="#" role="button"
+                 data-bs-toggle="dropdown" aria-expanded="false">평가</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'tutor_team_evaluation' %}">튜터 팀 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_individual_evaluation' %}">튜터 개인 평가</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_evaluation_status' %}">평가 현황</a></li>
+                <li><a class="dropdown-item" href="{% url 'student_score_overview' %}">전체 학생 성적</a></li>
+              </ul>
+            </div>
+
+            <div class="dropdown">
+              <a class="text-decoration-none dropdown-toggle" href="#" role="button"
+                 data-bs-toggle="dropdown" aria-expanded="false">설정</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'tutor_templates' %}">평가 템플릿</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_settings' %}">결과 공개 설정</a></li>
+                <li><a class="dropdown-item" href="{% url 'tutor_score_weight_settings' %}">최종점수 가중치 설정</a></li>
+                <li><a class="dropdown-item" href="{% url 'pending_user_list' %}">회원 승인</a></li>
+                <li><a class="dropdown-item" href="{% url 'user_list' %}">회원 관리</a></li>
+              </ul>
+            </div>
+
+            <a class="btn btn-outline-primary btn-sm" href="/admin/">Admin</a>
+          {% else %}
+            <a class="text-decoration-none" href="{% url 'student_team' %}">내 팀</a>
+            <a class="text-decoration-none" href="{% url 'student_result' %}">내 결과</a>
+          {% endif %}
+          <span class="text-muted small">{{ user.username }}</span>
+          <form method="post" action="{% url 'logout' %}" class="d-inline m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-link btn-sm text-decoration-none p-0">로그아웃</button>
+          </form>
+        {% else %}
+          <a class="text-decoration-none" href="{% url 'login' %}">로그인</a>
+        {% endif %}
+      </div>
     </div>
   </nav>
+
   <main class="container py-4">
+    {% if messages %}
+      <div class="text-center mb-3">
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show page-message d-inline-block text-start" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
   </main>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // 페이지 상단 안내 메시지(.page-message)는 2.5초 후 자동으로
+    // fade out — Bootstrap의 dismiss 애니메이션을 그대로 이용
+    document.querySelectorAll('.page-message.alert-dismissible').forEach(function (el) {
+      setTimeout(function () {
+        bootstrap.Alert.getOrCreateInstance(el).close();
+      }, 2500);
+    });
+
+    // 페이지 전환 진행바 — 링크 클릭, 폼 제출, JS 리다이렉트 등 이 페이지를
+    // 벗어나는 모든 경우에 공통으로 걸리는 beforeunload 하나로 처리.
+    // (같은 페이지 내 해시 이동이나 새 탭 열기에는 beforeunload가 안 걸려서
+    // 자연히 제외됨)
+    (function () {
+      var bar = document.getElementById('page-progress-bar');
+      var timer = null;
+
+      function startProgress() {
+        clearInterval(timer);
+        var width = 0;
+        timer = setInterval(function () {
+          width += (90 - width) / 8;
+          bar.style.width = width + '%';
+        }, 200);
+      }
+
+      window.addEventListener('beforeunload', startProgress);
+
+      // bfcache로 뒤로가기 했을 때 이전에 멈춘 바가 남아있지 않도록 리셋
+      window.addEventListener('pageshow', function () {
+        clearInterval(timer);
+        bar.style.transition = 'none';
+        bar.style.width = '0%';
+        void bar.offsetWidth;
+        bar.style.transition = 'width 0.3s ease-out';
+      });
+    })();
+  </script>
 </body>
 </html>
-

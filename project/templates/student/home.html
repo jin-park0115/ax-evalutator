@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}학생 홈{% endblock %}
+
+{% block content %}
+
+<h2 class="mb-4">학생 홈</h2>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">
+      현재 평가 회차
+      {% if state == "before" %}
+        {% include "components/badge.html" with status="대기" %}
+      {% elif state == "open" %}
+        {% include "components/badge.html" with status="진행중" %}
+      {% else %}
+        {% include "components/badge.html" with status="마감" %}
+      {% endif %}
+    </h5>
+    <p class="card-text text-muted mb-0">
+      {% if state == "before" %}
+        아직 진행 중인 회차가 없습니다.
+      {% elif state == "open" %}
+        평가가 진행 중입니다.
+      {% else %}
+        평가가 마감되었습니다.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h5 class="card-title">
+      내 팀
+      {% if team %}
+        {% include "components/badge.html" with status="완료" %}
+      {% else %}
+        {% include "components/badge.html" with status="대기" %}
+      {% endif %}
+    </h5>
+    {% if team %}
+      <p class="card-text mb-0">
+        {{ team.name }} 소속입니다.
+        <a href="{% url 'student_team' %}">팀원 보기</a>
+      </p>
+    {% else %}
+      <p class="card-text text-muted mb-0">팀 편성 대기 중입니다.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">평가 진행 상태</h5>
+
+    {% if state == "before" %}
+      <p class="card-text text-muted mb-0">팀이 편성되면 평가를 시작할 수 있습니다.</p>
+
+    {% elif state == "open" %}
+      <p class="card-text">
+        팀 평가 ({{ progress.team_done }}/{{ progress.team_required }})
+        {% if progress.team_done >= progress.team_required %}
+          {% include "components/badge.html" with status="완료" %}
+        {% else %}
+          {% include "components/badge.html" with status="대기" %}
+        {% endif %}
+        &nbsp;
+        팀원 평가 ({{ progress.member_done }}/{{ progress.member_required }})
+        {% if progress.member_done >= progress.member_required %}
+          {% include "components/badge.html" with status="완료" %}
+        {% else %}
+          {% include "components/badge.html" with status="대기" %}
+        {% endif %}
+      </p>
+      <a class="btn btn-primary" href="{% url 'eval_team_list' %}">팀 평가하기</a>
+      <a class="btn btn-primary" href="{% url 'eval_peer_form' %}">팀원 평가하기</a>
+
+      {% if progress.is_complete %}
+      <div class="d-flex justify-content-between align-items-center border rounded p-3 mt-3">
+        <div>
+          <strong>최종 제출</strong>
+          <p class="text-muted small mb-0">
+            제출하면 팀 평가·팀원 평가 전체가 한 번에 잠깁니다. 이후 수정할 수 없습니다.
+          </p>
+        </div>
+        <form method="post" action="{% url 'eval_submit_final' %}"
+              onsubmit="return confirm('최종 제출하면 더 이상 수정할 수 없습니다. 계속할까요?');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">최종 제출</button>
+        </form>
+      </div>
+      {% endif %}
+
+    {% elif state == "done" %}
+      <p class="card-text">
+        팀 평가 {% include "components/badge.html" with status="완료" %}
+        &nbsp;
+        팀원 평가 {% include "components/badge.html" with status="완료" %}
+      </p>
+      <button class="btn btn-primary" disabled>팀 평가하기</button>
+      <button class="btn btn-primary" disabled>팀원 평가하기</button>
+      <p class="card-text text-muted mt-2 mb-0">평가를 모두 제출했습니다. 결과 공개를 기다려 주세요.</p>
+
+    {% elif state == "published" %}
+      <p class="card-text">
+        팀 평가 {% include "components/badge.html" with status="완료" %}
+        &nbsp;
+        팀원 평가 {% include "components/badge.html" with status="완료" %}
+      </p>
+      <a class="btn btn-primary" href="{% url 'student_result' %}">결과 보기</a>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

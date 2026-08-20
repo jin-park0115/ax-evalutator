@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}개인 상호평가{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">개인 상호평가</h1>
+        <p class="text-muted mb-0">
+            같은 팀원(본인 제외) 전원을 한 번에 평가합니다. 최종 제출 전까지는 몇 번이든 수정할 수 있습니다.
+        </p>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if finalized %}
+    <div class="alert alert-success">
+        최종 제출을 완료했습니다. 더 이상 수정할 수 없습니다.
+    </div>
+    {% elif not round %}
+    <div class="alert alert-info">
+        진행 중인 평가 회차가 없습니다.
+    </div>
+    {% elif not member_rows %}
+    <div class="alert alert-info">
+        평가할 팀원이 없습니다. (팀 편성 전이거나, 같은 팀원이 없습니다)
+    </div>
+    {% else %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% for row in member_rows %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>{{ row.member.student.username }}</strong>
+            </div>
+            <div class="card-body">
+
+                {% if not row.items %}
+                <p class="text-muted mb-0">
+                    아직 등록된 개인 평가 문항이 없습니다.
+                </p>
+                {% endif %}
+
+                {% for item in row.items %}
+                <div class="mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                    <label class="form-label">{{ item.text }}</label>
+                    <div class="d-flex gap-3">
+                        {% for score in "12345" %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio"
+                                   name="item_{{ row.member.student.id }}_{{ item.key }}"
+                                   id="{{ row.member.student.id }}_{{ item.key }}_{{ score }}"
+                                   value="{{ score }}"
+                                   {% if item.existing_value|stringformat:"s" == score %}checked{% endif %}
+                                   required>
+                            <label class="form-check-label" for="{{ row.member.student.id }}_{{ item.key }}_{{ score }}">
+                                {{ score }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+            </div>
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary">임시 저장</button>
+
+    </form>
+
+    {% endif %}
+
+</div>
+{% endblock %}

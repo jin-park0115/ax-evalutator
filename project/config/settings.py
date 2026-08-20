@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +14,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    
+    # --- django-allauth 필수 앱 추가 ---
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+
+    # 프로젝트 앱
     "apps.accounts",
     "apps.students",
     "apps.evaluations",
@@ -23,14 +31,21 @@ INSTALLED_APPS = [
     "apps.results",
 ]
 
+# django-allauth용 Site ID 설정
+SITE_ID = 1
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware", 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    
+    # --- allauth 필수 미들웨어 추가 ---
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -60,6 +75,7 @@ DATABASES = {
         "PASSWORD": config("POSTGRES_PASSWORD", default="postgres"),
         "HOST": config("POSTGRES_HOST", default="localhost"),
         "PORT": config("POSTGRES_PORT", default="5432"),
+        "OPTIONS": {"sslmode": config("POSTGRES_SSLMODE", default="disable")},
     }
 }
 
@@ -74,3 +90,59 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+LOGIN_URL = "/accounts/login/"
+# "/student/"로 고정되어 있어서 관리자로 로그인해도 학생 홈으로
+# 보내지던 문제 수정. "/"(home)는 역할에 따라 관리자/학생 화면을
+# 알아서 분기해서 보여주므로 이쪽으로 보내는 게 맞다.
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# messages.error()가 기본으로 붙이는 태그가 "error"라서 alert-error가
+# 되는데, Bootstrap엔 그런 클래스가 없어 배경/테두리가 안 먹었다.
+# Bootstrap의 alert-danger로 매핑.
+from django.contrib.messages import constants as message_constants
+MESSAGE_TAGS = {
+    message_constants.ERROR: "danger",
+}
+
+AUTH_USER_MODEL = 'accounts.User'
+
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.backends.RoleBasedAuthBackend',
+    # ModelBackend는 role 검사 없이 이메일+비밀번호만 확인해서
+    # RoleBasedAuthBackend가 막은 PENDING/APPROVED 계정을 다시 통과시켰음.
+    # RoleBasedAuthBackend가 이미 비밀번호 확인을 포함하므로 제거.
+
+    # --- allauth 인증 백엔드 추가 ---
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# --- 구글 소셜 로그인 상세 설정 ---
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
+
+# --- 구글 소셜 로그인 및 어댑터 설정 ---
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.CustomSocialAccountAdapter"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
+    }
+}
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

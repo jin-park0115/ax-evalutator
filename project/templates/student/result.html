@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}내 결과{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-4">내 결과</h2>
+
+  {% if not result %}
+    <div class="alert alert-info">
+      아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
+    </div>
+  {% else %}
+
+    {% if result.current %}
+      <h5 class="mb-3">{{ result.current.round_name }} (현재 회차)</h5>
+      {% with r=result.current %}
+        {% include "student/_result_round_card.html" %}
+      {% endwith %}
+    {% endif %}
+
+    {% if result.history %}
+      <h5 class="mt-4 mb-3">지난 회차 결과</h5>
+      {% for r in result.history %}
+        <div class="card mb-3">
+          <div class="card-body">
+            <p class="mb-2 fw-bold" style="font-size: calc(1rem + 1.5px);">{{ r.round_name }}</p>
+            {% include "student/_result_round_card.html" with compact=True %}
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% if not result.current and not result.history %}
+      <div class="alert alert-info">
+        아직 결과가 공개되지 않았습니다. 공개되면 이 화면에 표시됩니다.
+      </div>
+    {% endif %}
+
+  {% endif %}
+</div>
+{% endblock %}

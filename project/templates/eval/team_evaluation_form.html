@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ target_team.name }} 평가{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <h1 class="h3 mb-1">{{ target_team.name }} 평가</h1>
+        <a href="{% url 'eval_team_list' %}" class="text-muted small">← 팀 목록으로</a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if existing_answers %}
+    <div class="alert alert-info">
+        이전에 임시저장한 답변이 있습니다. 수정 후 다시 저장하면 갱신됩니다.
+    </div>
+    {% endif %}
+
+    {% if not items %}
+    <div class="alert alert-info">
+        아직 등록된 팀 평가 문항이 없습니다. 튜터가 평가 템플릿을 등록하면 여기에 표시됩니다.
+    </div>
+    {% else %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card">
+            <div class="card-header">
+                <strong>평가 문항</strong>
+            </div>
+
+            <div class="card-body">
+
+                {% for item in items %}
+                <div class="mb-4 {% if not forloop.last %}border-bottom pb-4{% endif %}">
+                    <label class="form-label fw-semibold">{{ item.text }}</label>
+                    <div class="d-flex gap-3">
+                        {% for score in "12345" %}
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio"
+                                   name="item_{{ item.key }}" id="{{ item.key }}_{{ score }}"
+                                   value="{{ score }}"
+                                   {% if item.existing_value|stringformat:"s" == score %}checked{% endif %}
+                                   required>
+                            <label class="form-check-label" for="{{ item.key }}_{{ score }}">
+                                {{ score }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <button type="submit" class="btn btn-primary">임시 저장</button>
+
+            </div>
+        </div>
+
+    </form>
+
+    {% endif %}
+
+</div>
+{% endblock %}

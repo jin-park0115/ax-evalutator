@@ -1,19 +1,83 @@
 from django.db import models
-
+from django.conf import settings
 from apps.evaluations.models import EvaluationRound
-from apps.students.models import Student
 
 
 class Team(models.Model):
-    round = models.ForeignKey(EvaluationRound, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
+    class EvalStatus(models.TextChoices):
+        NOT_OPENED = "NOT_OPENED", "평가 미열람"
+        OPEN = "OPEN", "평가 진행 중"
+        CLOSED = "CLOSED", "평가 종료"
+
+    round = models.ForeignKey(EvaluationRound, on_delete=models.CASCADE, related_name="teams")
+    name = models.CharField(max_length=100, verbose_name="팀 이름")
+    presentation_order = models.IntegerField(null=True, blank=True, verbose_name="발표 순서")
+    eval_status = models.CharField(
+        max_length=20,
+        choices=EvalStatus.choices,
+        default=EvalStatus.NOT_OPENED,
+        verbose_name="평가 상태",
+    )
+    eval_opened_at = models.DateTimeField(null=True, blank=True, verbose_name="평가 시작 일시")
+    eval_closed_at = models.DateTimeField(null=True, blank=True, verbose_name="평가 종료 일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성 일시")
 
     def __str__(self) -> str:
-        return self.name
+        return f"[{getattr(self.round, 'name', self.round_id)}] {self.name}"
 
 
 class TeamMember(models.Model):
-    team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="members")
+    # Student 대신 User(AUTH_USER_MODEL) 직접 참조
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="team_memberships"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["team", "student"],
+                name="uq_team_student_once"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.team.name} - {self.student}"
 
 
+class TeamUserScoreSeed(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+        verbose_name="사용자",
+    )
+    round = models.ForeignKey(
+        "evaluations.EvaluationRound",
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+        verbose_name="소속 평가 회차",
+    )
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name="score_seeds",
+        verbose_name="소속 팀",
+    )
+    cumulative_seed = models.FloatField(default=0.0, verbose_name="누적 시드 점수")
+
+    class Meta:
+        db_table = "TEAM_USER_SCORE_SEED"
+        verbose_name = "팀 사용자 누적 시드"
+        verbose_name_plural = "팀 사용자 누적 시드 목록"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "round"],
+                name="uq_user_round_seed_once",
+            )
+        ]
+
+    def __str__(self):
+        return f"[{self.team.name}] {self.user} - Seed: {self.cumulative_seed}"
