@@ -133,9 +133,60 @@
 
                     </div>
 
+                    <div class="row g-3 mt-1">
+
+                        <!-- 학생 평가 비중 -->
+                        <div class="col-md-3">
+
+                            <label
+                                for="studentWeight"
+                                class="form-label"
+                            >
+                                학생 평가 비중 (%)
+                            </label>
+
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="studentWeight"
+                                name="student_weight"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value="50"
+                            >
+
+                        </div>
+
+                        <!-- 튜터 평가 비중 -->
+                        <div class="col-md-3">
+
+                            <label
+                                for="tutorWeight"
+                                class="form-label"
+                            >
+                                튜터 평가 비중 (%)
+                            </label>
+
+                            <input
+                                type="number"
+                                class="form-control"
+                                id="tutorWeight"
+                                name="tutor_weight"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value="50"
+                            >
+
+                        </div>
+
+                    </div>
+
                     <p class="text-muted small mt-2 mb-0">
                         팀 수는 여기서 정하지 않습니다 — "팀 편성" 화면에서 팀을 구성하면
                         그 개수가 이 회차의 팀 수로 자동 반영됩니다.
+                        학생/튜터 평가 비중의 합은 항상 100%여야 합니다.
                     </p>
 
 
@@ -277,6 +328,8 @@
                                         data-round-name="{{ round.name }}"
                                         data-round-start="{{ round.start_at|date:'Y-m-d' }}"
                                         data-round-end="{{ round.end_at|date:'Y-m-d' }}"
+                                        data-round-student-weight="{% widthratio round.student_weight 1 100 %}"
+                                        data-round-tutor-weight="{% widthratio round.tutor_weight 1 100 %}"
                                     >
                                         수정
                                     </button>
@@ -438,6 +491,8 @@
         document.getElementById("roundIdInput").value = "";
         document.getElementById("roundFormTitle").textContent = "새 평가 회차 생성";
         document.getElementById("roundFormSubmit").textContent = "회차 생성";
+        document.getElementById("studentWeight").value = 50;
+        document.getElementById("tutorWeight").value = 50;
 
     }
 
@@ -456,6 +511,8 @@
             document.getElementById("evaluationName").value = btn.dataset.roundName;
             document.getElementById("startDate").value = btn.dataset.roundStart;
             document.getElementById("endDate").value = btn.dataset.roundEnd;
+            document.getElementById("studentWeight").value = btn.dataset.roundStudentWeight;
+            document.getElementById("tutorWeight").value = btn.dataset.roundTutorWeight;
 
             document.getElementById("roundFormTitle").textContent = "평가 회차 수정";
             document.getElementById("roundFormSubmit").textContent = "회차 수정";
@@ -467,6 +524,22 @@
 
         });
 
+    });
+
+
+    // =====================================
+    // 학생/튜터 비중 자동 보정 (합 100% 유지)
+    // =====================================
+
+    const studentWeightInput = document.getElementById("studentWeight");
+    const tutorWeightInput = document.getElementById("tutorWeight");
+
+    studentWeightInput.addEventListener("input", function () {
+        tutorWeightInput.value = 100 - Number(studentWeightInput.value);
+    });
+
+    tutorWeightInput.addEventListener("input", function () {
+        studentWeightInput.value = 100 - Number(tutorWeightInput.value);
     });
 
 

@@ -13,6 +13,7 @@ from apps.evaluations.views_tutor import (
     template_list,
     template_create,
     tutor_settings,
+    score_weight_settings,
     evaluation_status,
 )
 
@@ -132,6 +133,13 @@ urlpatterns = [
         "tutor/settings/",
         tutor_settings,
         name="tutor_settings",
+    ),
+
+    # 최종점수 가중치 설정
+    path(
+        "tutor/score-weights/",
+        score_weight_settings,
+        name="tutor_score_weight_settings",
     ),
 
     # 평가 현황
